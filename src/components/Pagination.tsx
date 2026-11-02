@@ -1,49 +1,14 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-
-interface Props {
-  page: number;
-  pages: number;
-  onPageChange: (page: number) => void;
-}
-
-export default function Pagination({ page, pages, onPageChange }: Props) {
-  if (pages <= 1) return null;
-
-  return (
-    <div className="flex items-center justify-center gap-2 mt-8">
-      <button
-        onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
-        className="flex items-center gap-1 px-3 py-1.5 text-sm border border-stone-300 rounded hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Prev
-      </button>
-
-      <div className="flex gap-1">
-        {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-          <button
-            key={p}
-            onClick={() => onPageChange(p)}
-            className={`w-8 h-8 text-sm rounded transition-colors ${
-              p === page
-                ? 'bg-amber-700 text-white font-medium'
-                : 'border border-stone-300 hover:bg-stone-100 text-stone-600'
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-
-      <button
-        onClick={() => onPageChange(page + 1)}
-        disabled={page >= pages}
-        className="flex items-center gap-1 px-3 py-1.5 text-sm border border-stone-300 rounded hover:bg-stone-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        Next
-        <ChevronRight className="w-4 h-4" />
-      </button>
-    </div>
-  );
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+interface Props { page: number; pages: number; total?: number; limit?: number; onPageChange: (page: number) => void; onLimitChange?: (limit: number) => void; }
+export default function Pagination({ page, pages, total = 0, limit = 10, onPageChange, onLimitChange }: Props) {
+  const last = Math.max(1, pages);
+  return <div className="pagination-bar" aria-label="Archive pagination"><span>Page</span>
+    <button onClick={() => onPageChange(1)} disabled={page <= 1} aria-label="First page"><ChevronsLeft /></button>
+    <button onClick={() => onPageChange(page - 1)} disabled={page <= 1} aria-label="Previous page"><ChevronLeft /></button>
+    <label className="page-number"><span className="sr-only">Current page</span><select value={Math.min(page, last)} onChange={event => onPageChange(Number(event.target.value))}>{Array.from({ length: last }, (_, index) => <option key={index} value={index + 1}>{String(index + 1).padStart(2, '0')}</option>)}</select></label>
+    <button onClick={() => onPageChange(page + 1)} disabled={page >= last} aria-label="Next page"><ChevronRight /></button>
+    <button onClick={() => onPageChange(last)} disabled={page >= last} aria-label="Last page"><ChevronsRight /></button><span>of {last}</span>
+    <span className="record-count">Record {total ? (page - 1) * limit + 1 : 0} to {Math.min(page * limit, total)} of {total}</span>
+    {onLimitChange && <select aria-label="Records per page" value={limit} onChange={event => onLimitChange(Number(event.target.value))}>{[10, 20, 50].map(value => <option key={value}>{value}</option>)}</select>}
+  </div>;
 }

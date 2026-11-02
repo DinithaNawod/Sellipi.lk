@@ -1,73 +1,20 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Clock, FileText } from 'lucide-react';
+import { MoreVertical, ImageOff, Bookmark } from 'lucide-react';
 import type { Inscription } from '../services/api';
-import { formatLocation, truncateText } from '../utils/formatters';
-
-interface Props {
-  inscription: Inscription;
-}
-
-const PLACEHOLDER_IMG = 'https://placehold.co/600x400/e7e5e4/78716c?text=No+Image';
-
-export default function InscriptionCard({ inscription }: Props) {
-  const { _id, title, description, imageUrl, location, historicalPeriod, scriptType } = inscription;
-  const locationStr = formatLocation(location);
-
-  return (
-    <Link
-      to={`/inscription/${_id}`}
-      className="group flex flex-col bg-white border border-stone-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:border-stone-300 transition-all duration-200"
-    >
-      {/* Image */}
-      <div className="relative h-44 bg-stone-100 overflow-hidden">
-        <img
-          src={imageUrl || PLACEHOLDER_IMG}
-          alt={title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = PLACEHOLDER_IMG;
-          }}
-        />
-        {scriptType && (
-          <span className="absolute top-2 right-2 bg-amber-700/90 text-amber-50 text-xs font-medium px-2 py-0.5 rounded">
-            {scriptType}
-          </span>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col flex-1 p-4 gap-2">
-        <h3 className="font-semibold text-stone-800 text-base leading-snug group-hover:text-amber-800 transition-colors line-clamp-2">
-          {title}
-        </h3>
-
-        {description && (
-          <p className="text-stone-500 text-sm leading-relaxed line-clamp-2">
-            {truncateText(description, 100)}
-          </p>
-        )}
-
-        <div className="mt-auto pt-2 border-t border-stone-100 flex flex-col gap-1">
-          {locationStr !== 'Location unknown' && (
-            <div className="flex items-center gap-1.5 text-xs text-stone-500">
-              <MapPin className="w-3.5 h-3.5 shrink-0 text-stone-400" />
-              <span className="truncate">{locationStr}</span>
-            </div>
-          )}
-          {historicalPeriod && (
-            <div className="flex items-center gap-1.5 text-xs text-stone-500">
-              <Clock className="w-3.5 h-3.5 shrink-0 text-stone-400" />
-              <span className="truncate">{historicalPeriod}</span>
-            </div>
-          )}
-          {!locationStr.includes('unknown') && !historicalPeriod && (
-            <div className="flex items-center gap-1.5 text-xs text-stone-400">
-              <FileText className="w-3.5 h-3.5 shrink-0" />
-              <span>View details</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
+import { formatLocation } from '../utils/formatters';
+import { readStored, writeStored } from '../utils/browserStorage';
+export default function InscriptionCard({ inscription }: { inscription: Inscription }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [saved, setSaved] = useState(() => readStored<string[]>('sellipi-bookmarks', []).includes(inscription._id));
+  const [imageFailed, setImageFailed] = useState(false);
+  const [message, setMessage] = useState('');
+  function bookmark() {
+    const existing = readStored<string[]>('sellipi-bookmarks', []);
+    const next = existing.includes(inscription._id) ? existing.filter(id => id !== inscription._id) : [...existing, inscription._id];
+    if (writeStored('sellipi-bookmarks', next)) setSaved(next.includes(inscription._id));
+    else setMessage('Bookmarks could not be saved in this browser.');
+    setMenuOpen(false);
+  }
+  return <article className="inscription-row"><Link className="inscription-thumbnail" to={`/inscription/${inscription._id}`} aria-label={`View ${inscription.title}`}>{inscription.imageUrl && !imageFailed ? <img src={inscription.imageUrl} alt={inscription.title} onError={() => setImageFailed(true)} /> : <span className="image-placeholder"><ImageOff />No image available</span>}</Link><div className="inscription-summary"><p>Inscription Name: {inscription.title}</p><p>Site: {formatLocation(inscription.location)}</p><p>Period: {inscription.historicalPeriod || 'Not recorded'}</p><p>Language: Not recorded</p><p>Script: {inscription.scriptType || 'Not recorded'}</p></div><div className="inscription-actions"><button className="icon-button" aria-label={`More options for ${inscription.title}`} aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><MoreVertical /></button>{menuOpen && <button className="row-menu" onClick={bookmark}><Bookmark />{saved ? 'Remove bookmark' : 'Bookmark'}</button>}<Link className="primary-button" to={`/inscription/${inscription._id}`}>View Information &gt;&gt;</Link></div>{message && <p role="status">{message}</p>}</article>;
 }

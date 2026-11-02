@@ -1,145 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertCircle, LayoutGrid } from 'lucide-react';
-import { fetchInscriptions, fetchFilterOptions } from '../services/api';
-import type { Inscription, FilterOptions, PaginatedResponse } from '../services/api';
+import { useState, useEffect, type FormEvent } from 'react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { fetchInscriptions, fetchFilterOptions, getApiErrorMessage } from '../services/api';
+import type { Inscription, FilterOptions, FilterParams } from '../services/api';
+import PageHero from '../components/PageHero';
 import InscriptionCard from '../components/InscriptionCard';
-import FilterSidebar from '../components/FilterSidebar';
-import type { ActiveFilters } from '../components/FilterSidebar';
 import Pagination from '../components/Pagination';
-
-const EMPTY_FILTERS: ActiveFilters = {
-  search: '',
-  location: '',
-  historicalPeriod: '',
-  scriptType: '',
-};
-
-const EMPTY_OPTIONS: FilterOptions = { locations: [], periods: [], scripts: [] };
-
+import banner from '../assets/reference/archive-banner.jpg';
+const empty = { search: '', location: '', historicalPeriod: '', scriptType: '' };
 export default function ArchiveView() {
-  const [inscriptions, setInscriptions] = useState<Inscription[]>([]);
-  const [pagination, setPagination] = useState<PaginatedResponse['pagination']>({
-    total: 0, page: 1, limit: 12, pages: 0,
-  });
-  const [filters, setFilters] = useState<ActiveFilters>(EMPTY_FILTERS);
-  const [options, setOptions] = useState<FilterOptions>(EMPTY_OPTIONS);
+  const [draft, setDraft] = useState(empty);
+  const [query, setQuery] = useState<FilterParams>({ ...empty, page: 1, limit: 10 });
+  const [options, setOptions] = useState<FilterOptions>({ locations: [], periods: [], scripts: [] });
+  const [records, setRecords] = useState<Inscription[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-
-  // Debounced search
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  useEffect(() => { let active = true; fetchFilterOptions().then(value => { if (active) setOptions(value); }).catch(() => {}); return () => { active = false; }; }, []);
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(filters.search), 350);
-    return () => clearTimeout(t);
-  }, [filters.search]);
-
-  const loadOptions = useCallback(async () => {
-    try {
-      const opts = await fetchFilterOptions();
-      setOptions(opts);
-    } catch {
-      // Non-critical, swallow
-    }
-  }, []);
-
-  const loadInscriptions = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await fetchInscriptions({
-        search: debouncedSearch,
-        location: filters.location,
-        historicalPeriod: filters.historicalPeriod,
-        scriptType: filters.scriptType,
-        page,
-        limit: 12,
-      });
-      setInscriptions(result.inscriptions);
-      setPagination(result.pagination);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load inscriptions');
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, filters.location, filters.historicalPeriod, filters.scriptType, page]);
-
-  useEffect(() => { loadOptions(); }, [loadOptions]);
-  useEffect(() => { setPage(1); }, [debouncedSearch, filters.location, filters.historicalPeriod, filters.scriptType]);
-  useEffect(() => { loadInscriptions(); }, [loadInscriptions]);
-
-  const handleFilterChange = (updated: Partial<ActiveFilters>) => {
-    setFilters((prev) => ({ ...prev, ...updated }));
-  };
-
-  const handleReset = () => {
-    setFilters(EMPTY_FILTERS);
-    setPage(1);
-  };
-
-  return (
-    <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-stone-800 flex items-center gap-2">
-          <LayoutGrid className="w-6 h-6 text-amber-700" />
-          Inscription Archive
-        </h1>
-        <p className="text-stone-500 text-sm mt-1">
-          Browse and search the digital collection of ancient Sri Lankan inscriptions.
-        </p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
-        <FilterSidebar
-          filters={filters}
-          options={options}
-          onFilterChange={handleFilterChange}
-          onReset={handleReset}
-          totalResults={pagination.total}
-        />
-
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-stone-400">
-              <Loader2 className="w-8 h-8 animate-spin mb-3" />
-              <span className="text-sm">Loading inscriptions…</span>
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center py-20 text-red-600">
-              <AlertCircle className="w-8 h-8 mb-3" />
-              <span className="text-sm font-medium">{error}</span>
-              <button
-                onClick={loadInscriptions}
-                className="mt-3 text-xs underline hover:no-underline"
-              >
-                Try again
-              </button>
-            </div>
-          ) : inscriptions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-stone-400">
-              <LayoutGrid className="w-10 h-10 mb-3 opacity-40" />
-              <p className="text-sm font-medium text-stone-500">No inscriptions found</p>
-              <p className="text-xs mt-1">Try adjusting your search or filters.</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {inscriptions.map((ins) => (
-                  <InscriptionCard key={ins._id} inscription={ins} />
-                ))}
-              </div>
-              <Pagination
-                page={pagination.page}
-                pages={pagination.pages}
-                onPageChange={setPage}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </main>
-  );
+    let active = true;
+    fetchInscriptions(query).then(value => { if (active) { setRecords(value.inscriptions); setTotal(value.pagination.total); setError(''); } }).catch(err => { if (active) setError(getApiErrorMessage(err, 'Unable to load inscriptions.')); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [query, retry]);
+  function search(event: FormEvent) { event.preventDefault(); setLoading(true); setQuery({ ...draft, page: 1, limit: query.limit }); }
+  function clear() { setDraft(empty); setLoading(true); setQuery({ ...empty, page: 1, limit: query.limit }); }
+  const pagination = <Pagination page={query.page ?? 1} pages={Math.ceil(total / (query.limit ?? 10))} total={total} limit={query.limit} onPageChange={page => { setLoading(true); setQuery(prev => ({ ...prev, page })); }} onLimitChange={limit => { setLoading(true); setQuery(prev => ({ ...prev, page: 1, limit })); }} />;
+  return <main className="archive-page"><PageHero title="Digitalize Inscription Database" image={banner} /><form onSubmit={search} className="advanced-search content-width"><h2>Advanced Search</h2><div className="search-fields">
+    <label>Publication<select disabled title="Publication metadata is not available in the current archive"><option>Select Publication</option></select></label>
+    <label>Site<select value={draft.location} onChange={event => setDraft(prev => ({ ...prev, location: event.target.value }))}><option value="">Select Site</option>{options.locations.map(value => <option key={value}>{value}</option>)}</select></label>
+    <label>Inscription Number <small>(contains)</small><input value={draft.search} onChange={event => setDraft(prev => ({ ...prev, search: event.target.value }))} placeholder="Enter Inscription Number or Keyword" /></label>
+    <label>Period<select value={draft.historicalPeriod} onChange={event => setDraft(prev => ({ ...prev, historicalPeriod: event.target.value }))}><option value="">Select Period</option>{options.periods.map(value => <option key={value}>{value}</option>)}</select></label>
+    <label>Language<select disabled title="Language metadata is not available in the current archive"><option>Select Language</option></select></label>
+    <label>Script<select value={draft.scriptType} onChange={event => setDraft(prev => ({ ...prev, scriptType: event.target.value }))}><option value="">Select Script</option>{options.scripts.map(value => <option key={value}>{value}</option>)}</select></label>
+  </div><div className="search-buttons"><button className="primary-button" type="submit">Search</button><button className="primary-button light-button" type="button" onClick={clear}>Clear</button></div><p className="metadata-hint">Publication and language filters will be available when that metadata is recorded.</p></form>
+  {pagination}<section className="archive-results content-width" aria-live="polite">{loading ? <div className="state-message"><Loader2 className="animate-spin" />Loading inscriptions…</div> : error ? <div className="state-message error-message"><AlertCircle /><p>{error}</p><button className="primary-button" onClick={() => { setLoading(true); setRetry(value => value + 1); }}>Try Again</button></div> : records.length ? records.map(item => <InscriptionCard key={item._id} inscription={item} />) : <div className="state-message"><h2>No inscriptions found</h2><p>Try another search or clear the filters.</p></div>}</section>{pagination}</main>;
 }

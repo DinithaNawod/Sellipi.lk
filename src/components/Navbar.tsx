@@ -1,103 +1,47 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Mail, Phone, Bell, UserCircle, LogOut, ScrollText } from 'lucide-react';
+import { useState } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Mail, PhoneCall, Bell, CircleUserRound, Menu, X, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const NAV_LINKS = [
+export const navigation = [
   { label: 'Home', to: '/' },
-  { label: 'Introduction to Inscription', to: '/#about' },
+  { label: 'Introduction to Inscription', to: '/introduction' },
   { label: 'Find Inscriptions', to: '/inscriptions' },
   { label: 'Translate', to: '/translate' },
+  { label: 'About Us', to: '/about' },
+  { label: 'Our Services', to: '/services' },
+  { label: 'Contact Us', to: '/contact' },
 ];
 
 export default function Navbar() {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
   const { isAuthenticated, username, logout } = useAuth();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
-
-  return (
-    <header className="sticky top-0 z-50 font-poppins">
-      {/* Top info bar */}
-      <div className="bg-maroon text-white text-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-10 flex items-center justify-between">
-          <div className="hidden sm:flex items-center gap-2 font-sinhala">
-            <button className="opacity-80 hover:opacity-100 transition-opacity">සිංහල</button>
-            <span className="opacity-50">/</span>
-            <button className="font-bold">English</button>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <a href="mailto:admin@sellipi.lk" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-              <Mail className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">admin@sellipi.lk</span>
-            </a>
-            <a href="tel:+94112786200" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-              <Phone className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">+94 11 2786200</span>
-            </a>
-          </div>
+  const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  return <header className="site-header">
+    <div className="masthead">
+      <Link to="/" className="masthead-curve" aria-label="Inscription Sri Lanka home" />
+      <div className="masthead-inner">
+        <div className="language-links"><span lang="si">සිංහල</span><span aria-current="true">English</span></div>
+        <div className="masthead-contact">
+          <a href="mailto:admin@sellipi.lk"><Mail aria-hidden="true" />admin@sellipi.lk</a>
+          <a href="tel:+94112786200"><PhoneCall aria-hidden="true" />+94 11 2786200, +94 11 2784203-4</a>
         </div>
       </div>
-
-      {/* Main nav */}
-      <div className="bg-white border-t-[3px] border-maroon shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2 text-maroon shrink-0">
-            <ScrollText className="w-6 h-6" />
-            <span className="font-display text-lg tracking-wide">Inscription Sri Lanka</span>
-          </Link>
-
-          <nav className="hidden lg:flex items-center gap-5 overflow-x-auto">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.label}
-                to={link.to}
-                className={`text-sm whitespace-nowrap transition-colors ${
-                  pathname === link.to
-                    ? 'text-maroon font-bold'
-                    : 'text-stone-700 hover:text-maroon font-medium'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              title="Notifications"
-              className="text-stone-500 hover:text-maroon transition-colors"
-            >
-              <Bell className="w-5 h-5" />
-            </button>
-
-            {isAuthenticated ? (
-              <div className="flex items-center gap-2">
-                <Link to="/admin" className="flex items-center gap-1.5 text-stone-700 hover:text-maroon transition-colors">
-                  <UserCircle className="w-6 h-6" />
-                  <span className="hidden sm:inline text-sm font-medium">Hi, {username}</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  title="Sign out"
-                  className="text-stone-400 hover:text-maroon transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <Link to="/admin/login" className="flex items-center gap-1.5 text-stone-700 hover:text-maroon transition-colors">
-                <UserCircle className="w-6 h-6" />
-                <span className="hidden sm:inline text-sm font-medium">Sign In</span>
-              </Link>
-            )}
-          </div>
+    </div>
+    <div className="navigation-bar">
+      <button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button>
+      <nav aria-label="Main navigation" className={menuOpen ? 'main-navigation is-open' : 'main-navigation'}>
+        {navigation.map(item => <NavLink key={item.to} to={item.to} end={item.to === '/'} onClick={() => setMenuOpen(false)} className={({ isActive }) => isActive || (item.to === '/inscriptions' && pathname.startsWith('/inscription/')) ? 'active' : ''}>{item.label}</NavLink>)}
+      </nav>
+      <div className="navigation-account">
+        <div className="notification-control">
+          <button className="icon-button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(!notificationsOpen)}><Bell fill="currentColor" /></button>
+          {notificationsOpen && <div className="notification-popover" role="status">You have no new notifications.</div>}
         </div>
+        <Link to={isAuthenticated ? '/account' : '/admin/login'} className="account-link"><CircleUserRound fill="currentColor" className="account-icon" /><span>{isAuthenticated ? `Hi, ${username}` : 'Sign In'}</span></Link>
+        {isAuthenticated && <button className="icon-button logout-button" onClick={logout} aria-label="Sign out"><LogOut /></button>}
       </div>
-    </header>
-  );
+    </div>
+  </header>;
 }

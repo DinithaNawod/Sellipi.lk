@@ -1,228 +1,65 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import {
-  ArrowLeft, MapPin, Clock, ScrollText, FileText,
-  Languages, Loader2, AlertCircle, Calendar, Volume2, VolumeX, Image
-} from 'lucide-react';
-import { fetchInscriptionById } from '../services/api';
+import { useState, useEffect, useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { FileDown, Bookmark, Volume2, VolumeX, Pencil, X, Loader2, ImageOff, Image, Trash2 } from 'lucide-react';
+import { fetchInscriptionById, getApiErrorMessage } from '../services/api';
 import type { Inscription } from '../services/api';
-import { formatLocation, formatDate } from '../utils/formatters';
-import { useTTS, type TTSLang } from '../hooks/useTTS';
-
-const PLACEHOLDER_IMG = 'https://placehold.co/800x500/e7e5e4/78716c?text=No+Image+Available';
-
+import { formatLocation } from '../utils/formatters';
+import { useTTS } from '../hooks/useTTS';
+import { readStored, writeStored } from '../utils/browserStorage';
+type Note = { name: string; text: string };
 export default function DetailView() {
   const { id } = useParams<{ id: string }>();
-  const [inscription, setInscription] = useState<Inscription | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showProcessed, setShowProcessed] = useState(false);
-  const [ttsLang, setTtsLang] = useState<TTSLang>('en-US');
-  const { speak, stop, speaking, supported: ttsSupported } = useTTS();
-
+  const [record, setRecord] = useState<Inscription | null>(null);
+  const [error, setError] = useState('');
+  const [processed, setProcessed] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [notes, setNotes] = useState<Note[]>(() => readStored<Note[]>(`sellipi-notes-${id}`, []));
+  const [saved, setSaved] = useState(() => readStored<string[]>('sellipi-bookmarks', []).includes(id ?? ''));
+  const noteButton = useRef<HTMLButtonElement>(null);
+  const [message, setMessage] = useState('');
+  const [imageFailed, setImageFailed] = useState(false);
+  const { speak, stop, speaking, supported } = useTTS();
   useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    setError(null);
-    fetchInscriptionById(id)
-      .then(setInscription)
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Failed to load inscription');
-      })
-      .finally(() => setLoading(false));
+    let active = true;
+    if (id) fetchInscriptionById(id).then(value => { if (active) setRecord(value); }).catch(err => { if (active) setError(getApiErrorMessage(err, 'Unable to load inscription.')); });
+    return () => { active = false; };
   }, [id]);
-
-  if (loading) {
-    return (
-      <main className="flex-1 flex items-center justify-center py-20">
-        <div className="flex flex-col items-center text-stone-400">
-          <Loader2 className="w-8 h-8 animate-spin mb-3" />
-          <span className="text-sm">Loading inscription…</span>
-        </div>
-      </main>
-    );
+  const storedNotes = notes;
+  const isSaved = saved;
+  function closeNote() { setNoteOpen(false); noteButton.current?.focus(); }
+  function dialogKeys(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape') closeNote();
+    if (event.key !== 'Tab') return;
+    const fields = event.currentTarget.querySelectorAll<HTMLElement>('button, input, textarea');
+    const first = fields[0], last = fields[fields.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
-
-  if (error || !inscription) {
-    return (
-      <main className="flex-1 flex items-center justify-center py-20">
-        <div className="flex flex-col items-center text-red-600">
-          <AlertCircle className="w-8 h-8 mb-3" />
-          <span className="text-sm font-medium">{error || 'Inscription not found'}</span>
-          <Link to="/inscriptions" className="mt-3 text-xs text-stone-500 underline hover:no-underline">
-            Back to archive
-          </Link>
-        </div>
-      </main>
-    );
+  function removeNote(index: number) {
+    const next = notes.filter((_, position) => position !== index);
+    if (writeStored(`sellipi-notes-${id}`, next)) { setNotes(next); setMessage('Note removed from this device.'); }
+    else setMessage('Your browser could not remove this note.');
   }
-
-  const {
-    title, description, imageUrl, imageProcessedUrl, location, historicalPeriod,
-    scriptType, contentRaw, contentTranslated, createdAt
-  } = inscription;
-  const locationStr = formatLocation(location);
-  const hasProcessed = !!imageProcessedUrl;
-  const displayImage = showProcessed && hasProcessed ? imageProcessedUrl : imageUrl;
-
-  const handleListen = () => {
-    if (speaking) { stop(); return; }
-    if (!contentTranslated) return;
-    speak(contentTranslated, ttsLang);
-  };
-
-  return (
-    <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-      <Link
-        to="/inscriptions"
-        className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-800 transition-colors mb-6"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Archive
-      </Link>
-
-      <div className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
-        {/* Hero Image */}
-        <div className="relative h-64 sm:h-80 bg-stone-100">
-          <img
-            src={displayImage || PLACEHOLDER_IMG}
-            alt={title}
-            className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMG; }}
-          />
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            {hasProcessed && (
-              <button
-                onClick={() => setShowProcessed((v) => !v)}
-                title={showProcessed ? 'Show original image' : 'Show processed image'}
-                className="flex items-center gap-1.5 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full hover:bg-black/80 transition-colors"
-              >
-                <Image className="w-3.5 h-3.5" />
-                {showProcessed ? 'Original' : 'Processed'}
-              </button>
-            )}
-            {scriptType && (
-              <span className="bg-amber-700/90 text-amber-50 text-sm font-medium px-3 py-1 rounded-full">
-                {scriptType}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="p-6 sm:p-8">
-          {/* Title & meta row */}
-          <div className="flex flex-wrap gap-3 mb-2">
-            {historicalPeriod && (
-              <span className="flex items-center gap-1 text-xs bg-stone-100 text-stone-600 px-2.5 py-1 rounded-full border border-stone-200">
-                <Clock className="w-3 h-3" />
-                {historicalPeriod}
-              </span>
-            )}
-            {locationStr !== 'Location unknown' && (
-              <span className="flex items-center gap-1 text-xs bg-stone-100 text-stone-600 px-2.5 py-1 rounded-full border border-stone-200">
-                <MapPin className="w-3 h-3" />
-                {locationStr}
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl font-semibold text-stone-800 mb-3 leading-snug">
-            {title}
-          </h1>
-
-          {description && (
-            <p className="text-stone-600 text-base leading-relaxed mb-6 border-b border-stone-100 pb-6">
-              {description}
-            </p>
-          )}
-
-          {/* Detail grid */}
-          <div className="grid sm:grid-cols-2 gap-6 mb-6">
-            <MetaBlock icon={<MapPin className="w-4 h-4" />} label="Location">
-              <p>{location.name || '—'}</p>
-              {location.district && <p className="text-stone-400">{location.district}, {location.province}</p>}
-            </MetaBlock>
-            <MetaBlock icon={<Clock className="w-4 h-4" />} label="Historical Period">
-              <p>{historicalPeriod || '—'}</p>
-            </MetaBlock>
-            <MetaBlock icon={<ScrollText className="w-4 h-4" />} label="Script Type">
-              <p>{scriptType || '—'}</p>
-            </MetaBlock>
-            <MetaBlock icon={<Calendar className="w-4 h-4" />} label="Catalogued">
-              <p>{formatDate(createdAt)}</p>
-            </MetaBlock>
-          </div>
-
-          {/* Transcription */}
-          {contentRaw && (
-            <Section icon={<FileText className="w-5 h-5 text-amber-700" />} title="Original Transcription">
-              <pre className="whitespace-pre-wrap font-mono text-sm text-stone-700 bg-stone-50 border border-stone-200 rounded-lg p-4 leading-relaxed">
-                {contentRaw}
-              </pre>
-            </Section>
-          )}
-
-          {/* Translation + TTS */}
-          {contentTranslated && (
-            <Section icon={<Languages className="w-5 h-5 text-amber-700" />} title="Translation">
-              <p className="text-stone-700 leading-relaxed bg-amber-50/60 border border-amber-100 rounded-lg p-4 whitespace-pre-line">
-                {contentTranslated}
-              </p>
-
-              {ttsSupported && (
-                <div className="flex items-center gap-3 mt-3">
-                  <select
-                    value={ttsLang}
-                    onChange={(e) => setTtsLang(e.target.value as TTSLang)}
-                    disabled={speaking}
-                    className="text-xs border border-stone-300 rounded px-2 py-1.5 text-stone-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 bg-white disabled:opacity-50"
-                  >
-                    <option value="en-US">English</option>
-                    <option value="si-LK">සිංහල (Sinhala)</option>
-                  </select>
-                  <button
-                    onClick={handleListen}
-                    className={`flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-full font-medium transition-colors ${
-                      speaking
-                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                        : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                    }`}
-                  >
-                    {speaking
-                      ? <><VolumeX className="w-4 h-4" /> Stop</>
-                      : <><Volume2 className="w-4 h-4" /> Listen</>
-                    }
-                  </button>
-                </div>
-              )}
-            </Section>
-          )}
-        </div>
-      </div>
-    </main>
-  );
-}
-
-function MetaBlock({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 text-xs font-medium text-stone-400 uppercase tracking-wider mb-1">
-        {icon}
-        {label}
-      </div>
-      <div className="text-stone-700 text-sm">{children}</div>
-    </div>
-  );
-}
-
-function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-6">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-stone-700 mb-3">
-        {icon}
-        {title}
-      </h2>
-      {children}
-    </div>
-  );
+  function bookmark() {
+    const existing = readStored<string[]>('sellipi-bookmarks', []);
+    const next = existing.includes(id!) ? existing.filter(value => value !== id) : [...existing, id!];
+    if (writeStored('sellipi-bookmarks', next)) { setSaved(next.includes(id!)); setMessage(next.includes(id!) ? 'Bookmarked on this device.' : 'Bookmark removed.'); }
+    else setMessage('Your browser could not save this bookmark.');
+  }
+  function addNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const next = [...storedNotes, { name: String(data.get('name')).trim(), text: String(data.get('note')).trim() }];
+    if (writeStored(`sellipi-notes-${id}`, next)) { setNotes(next); closeNote(); setMessage('Note saved on this device.'); }
+    else setMessage('Your browser could not save this note.');
+  }
+  if (error) return <main className="empty-page"><p role="alert">{error}</p><Link to="/inscriptions" className="primary-button">Back to Archive</Link></main>;
+  if (!record) return <main className="empty-page"><Loader2 className="animate-spin" /><p>Loading inscription…</p></main>;
+  const metadata = [{ label: 'Publication', value: 'Not recorded' }, { label: 'Inscription Number', value: record.title.match(/(?:no\.?|number|#)\s*(\d+)/i)?.[1] || 'Not recorded' }, { label: 'Site', value: formatLocation(record.location) }, { label: 'Period', value: record.historicalPeriod || 'Not recorded' }, { label: 'Language', value: 'Not recorded' }, { label: 'Script', value: record.scriptType || 'Not recorded' }];
+  return <main className="detail-page"><div className="breadcrumbs"><div className="wide-content"><Link to="/inscriptions">Digitalize Inscription Database</Link><span>›</span>{record.title}</div></div><article className="detail-content content-width"><div className="detail-toolbar"><button className="icon-button" onClick={() => window.print()} aria-label="Print or save as PDF"><FileDown /></button><button className="icon-button" onClick={bookmark} aria-label={isSaved ? 'Remove bookmark' : 'Bookmark inscription'} aria-pressed={isSaved}><Bookmark fill={isSaved ? 'currentColor' : 'none'} /></button></div><h1>{record.title}</h1><div className="detail-image">{record.imageUrl && !imageFailed ? <img src={processed && record.imageProcessedUrl ? record.imageProcessedUrl : record.imageUrl} alt={record.title} onError={() => setImageFailed(true)} /> : <span className="image-placeholder"><ImageOff />No image available</span>}{record.imageProcessedUrl && <button className="image-toggle secondary-button" onClick={() => { setProcessed(!processed); setImageFailed(false); }}><Image />{processed ? 'Show Original' : 'Show Enhanced'}</button>}</div><dl className="detail-metadata">{metadata.map(item => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>
+  {record.description && <section className="detail-description"><h2>Description</h2><p>{record.description}</p></section>}
+  <section className="detail-text-panel"><h2>Transliteration</h2><p>{record.contentRaw || 'No transcription has been recorded.'}</p></section><section className="detail-text-panel detail-translation"><div><h2>Translation</h2><p>{record.contentTranslated || 'No translation has been recorded.'}</p></div>{supported && record.contentTranslated && <button aria-label={speaking ? 'Stop reading' : 'Listen to translation'} onClick={() => speaking ? stop() : speak(record.contentTranslated)}>{speaking ? <VolumeX /> : <Volume2 />}</button>}</section>
+  <section className="notes-section"><p>If there is an error, update, or suggestion about this inscription, please inform us.</p><button ref={noteButton} className="primary-button" onClick={() => setNoteOpen(true)}><Pencil />Add Note</button><p role="status" className="form-status">{message}</p><table className="notes-table"><thead><tr><th>Name</th><th>Notes</th></tr></thead><tbody>{storedNotes.length ? storedNotes.map((note, index) => <tr key={index}><td>{note.name}</td><td>{note.text}<button className="icon-button note-remove" aria-label={`Remove note by ${note.name}`} onClick={() => removeNote(index)}><Trash2 /></button></td></tr>) : <tr className="empty-note-row"><td /><td /></tr>}</tbody></table></section></article>
+  {noteOpen && <div className="dialog-backdrop" onClick={closeNote}><section role="dialog" aria-modal="true" aria-labelledby="note-title" className="note-dialog" onClick={event => event.stopPropagation()} onKeyDown={dialogKeys}><button className="icon-button dialog-close" onClick={closeNote} aria-label="Close"><X /></button><h2 id="note-title">Add Note</h2><p>Notes are saved on this device.</p><form onSubmit={addNote}><label>Your name<input name="name" required maxLength={100} autoFocus /></label><label>Note<textarea name="note" required maxLength={3000} rows={5} /></label><button className="primary-button">Save Note</button></form></section></div>}
+  </main>;
 }

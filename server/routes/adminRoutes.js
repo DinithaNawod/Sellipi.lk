@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import { stats, listUsers, updateUser, listNotes, reviewNote } from '../controllers/adminController.js';
+import { updateSiteContent } from '../controllers/siteContentController.js';
+const router = Router();
+router.use(requireAuth, requireRole('admin'));
+router.put('/site-content', updateSiteContent);
+router.get('/stats', stats);
+router.get('/users', listUsers);
+router.patch('/users/:id', updateUser);
+router.get('/notes', listNotes);
+router.patch('/notes/:id', reviewNote);
+export default router;

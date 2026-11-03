@@ -1,23 +1,24 @@
 # Reference UI implementation
 
-The supplied screenshots are the visual reference for the frontend. Backend files, API contracts, database schemas, and environment configuration are unchanged.
+The supplied screenshots are the visual reference for the frontend. The subsequent role-based dashboard and academic-note moderation request also adds backend authorization, account fields, and a MongoDB Note model. Environment credentials are unchanged.
 
 ## Pages
 
 - `/`: home, heritage introduction, archive links, map link, and institutional links.
 - `/introduction`: introduction, history, Brahmi evolution, and the supplied alphabet chart.
 - `/inscriptions`: advanced search, archive rows, and pagination using live API results.
-- `/inscription/:id`: details, transcription, translation, read-aloud, print/save as PDF, browser bookmarks, and browser notes.
+- `/inscription/:id`: details, transcription, translation, read-aloud, print/save as PDF, browser bookmarks, and approved public academic notes.
 - `/translate`: upload, selected-image preview, processing, image comparison, detected text, and translation results.
 - `/about`, `/services`, `/contact`: the reference informational pages.
 - `/admin/login`, `/admin/register`: photograph-backed authentication screens using the existing API.
-- `/account`: the reference account sidebar, device-local display-name settings, and access to the existing admin dashboard.
-- `/admin`, `/map`: the existing management dashboard and interactive map remain accessible.
+- `/account`: the reference account sidebar, device-local display-name settings, and My Notes for academics.
+- `/admin`: administrator-only statistics, user management, note reviews, and inscription management. See README.md for first-admin setup.
+- `/map`: the existing interactive map.
 
 ## Existing backend boundaries
 
 - Publication and language are absent from the existing inscription schema. Their filter controls are disabled, and the detail screen displays “Not recorded”. Inscription numbers are extracted from titles when explicitly present. The number/keyword field uses the existing text search.
-- Bookmarks, notes, and display-name preferences are stored in this browser. They are not submitted to the server or synchronized between devices/accounts.
+- Bookmarks and display-name preferences stay in this browser. Academic notes are now stored on the server, attributed to their author, and require admin approval before publication. Previous browser-local notes are not imported or published.
 - Contact submission opens an email draft in the visitor's email application. The visitor must send the email there; the website does not claim successful delivery.
 - Language labels and unavailable media-center items are presentational. No interface translation or events/video service has been added.
 - The public archive displays actual API data, not the repeated sample records or sample counts shown in the mockup.

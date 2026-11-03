@@ -1,3 +1,4 @@
+import { useSiteContent } from '../context/SiteContentContext';
 import { ChevronRight } from 'lucide-react';
 import PageHero from '../components/PageHero';
 import banner from '../assets/reference/introduction-banner.jpg';
@@ -45,10 +46,11 @@ const evolution = [
   'In this way, it can be identified that the Brahmi alphabet has evolved up to the modern Sinhala alphabet by undergoing many changes.',
 ];
 export default function IntroductionPage() {
-  return <main><PageHero title="Introduction to Inscription" image={banner} /><article className="introduction-content content-width">
-    <div className="introduction-opening">{introduction.map(text => <p key={text}>{text}</p>)}</div>
-    <section><h2><ChevronRight />History of the Study of Inscriptions<br />in Sri Lanka</h2>{history.map(text => <p key={text}>{text}</p>)}</section>
-    <section><h2><ChevronRight />Notions on the origin and evolution<br />of the Brahmi alphabet</h2>{origin.map(text => <p key={text}>{text}</p>)}<ul>{findings.map(text => <li key={text}>{text}</li>)}</ul>{evolution.map(text => <p key={text}>{text}</p>)}</section>
-    <section><h2><ChevronRight />Brahmi Alphabet</h2><img className="brahmi-chart" src={alphabet} alt="Brahmi script in Ceylon, from the third century BC to the first century AD, with letter forms and source inscription numbers" /></section>
+  const { t, image } = useSiteContent();
+  return <main><PageHero title={t("Introduction to Inscription")} image={image("image_introduction_banner", banner)} /><article className="introduction-content content-width">
+    <div className="introduction-opening">{introduction.map(text => <p key={text}>{t(text)}</p>)}</div>
+    <section><h2><ChevronRight />{t("History of the Study of Inscriptions")}<br />{t("in Sri Lanka")}</h2>{history.map(text => <p key={text}>{t(text)}</p>)}</section>
+    <section><h2><ChevronRight />{t("Notions on the origin and evolution")}<br />{t("of the Brahmi alphabet")}</h2>{origin.map(text => <p key={text}>{t(text)}</p>)}<ul>{findings.map(text => <li key={text}>{t(text)}</li>)}</ul>{evolution.map(text => <p key={text}>{t(text)}</p>)}</section>
+    <section><h2><ChevronRight />{t("Brahmi Alphabet")}</h2><img className="brahmi-chart" src={image("image_introduction_alphabet", alphabet)} alt={t("Brahmi script in Ceylon, from the third century BC to the first century AD, with letter forms and source inscription numbers")} /></section>
   </article></main>;
 }

@@ -80,13 +80,13 @@ export default function AdminDashboard() {
   const showForm = modal === 'create' || modal === 'edit';
 
   return (
-    <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <section className="catalogue-management">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-stone-800 flex items-center gap-2">
             <LayoutDashboard className="w-6 h-6 text-amber-700" />
-            Admin Dashboard
+            Inscription Management
           </h1>
           <p className="text-stone-500 text-sm mt-1">
             Manage the inscription catalogue — {total} record{total !== 1 ? 's' : ''} total.
@@ -254,6 +254,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-    </main>
+    </section>
   );
 }

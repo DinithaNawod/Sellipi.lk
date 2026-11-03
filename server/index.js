@@ -10,6 +10,9 @@ import { fileURLToPath } from "url"
 import inscriptionRoutes from "./routes/inscriptionRoutes.js"
 import authRoutes from "./routes/authRoutes.js"
 import toolRoutes from "./routes/toolRoutes.js"
+import adminRoutes from "./routes/adminRoutes.js"
+import noteRoutes from "./routes/noteRoutes.js"
+import { getSiteContent } from './controllers/siteContentController.js';
 import { errorHandler } from "./middleware/errorHandler.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -51,6 +54,9 @@ const authLimiter = rateLimit({
 app.use("/api/auth", authLimiter, authRoutes)
 app.use("/api/inscriptions", inscriptionRoutes)
 app.use("/api/tools", toolRoutes)
+app.use("/api/admin", adminRoutes)
+app.use("/api/notes", noteRoutes)
+app.get('/api/site-content', getSiteContent);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() })

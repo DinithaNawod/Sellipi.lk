@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "server:dev": "nodemon server/index.js"
+    "server:dev": "nodemon server/index.js",
+    "admin:promote": "node server/scripts/promoteAdmin.js",
+    "test": "node --test server/tests/*.test.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

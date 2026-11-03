@@ -1,3 +1,4 @@
+import { useSiteContent } from '../context/SiteContentContext';
 import { Link } from 'react-router-dom';
 import { ImagePlus, ImageUp, ScanText, Languages, AudioLines, LibraryBig, Filter, Hourglass, UserRound } from 'lucide-react';
 import PageHero from '../components/PageHero';
@@ -20,9 +21,10 @@ const services = [
   { title: 'User Accounts', icon: UserRound, text: 'Create an account to upload inscriptions, save favorites, manage your submissions and contribute to the preservation of cultural heritage.', to: '/account' },
 ];
 export default function ServicesPage() {
-  return <main><PageHero title="Our Services" image={banner} /><div className="services-content content-width">
-    <section id="gallery"><h2>Image Gallery</h2><p>Explore our collection of ancient Sri Lankan inscriptions through a rich digital image gallery. Browse high-quality images of inscriptions from different historical periods and locations. Each image is preserved with detailed metadata, allowing users to discover, study, and appreciate Sri Lanka's archaeological heritage in an interactive and accessible way.</p>
-    <div className="heritage-gallery">{[{ image: gal, title: 'Gal Vihara' }, { image: dambulla, title: 'Dambulla Cave Temple' }, { image: yapahuwa, title: 'Yapahuwa Rock' }, { image: avukana, title: 'Avukana Buddha statue' }, { image: sigiriya, title: 'Sigiriya Rock' }, { image: ruwanwelisaya, title: 'Ruwanwelisaya Stupa' }].map(item => <Link to="/inscriptions" key={item.title}><figure><img src={item.image} alt={item.title} /><figcaption>{item.title}</figcaption></figure></Link>)}</div><Link to="/inscriptions" className="see-more">See More...</Link></section>
-    <section id="services"><h2>Services</h2><div className="service-list">{services.map(({ title, icon: Icon, text, to }) => <Link to={to} key={title} className="service-item"><div className="service-icon"><Icon aria-hidden="true" /></div><div><h3>{title}</h3><p>{text}</p></div></Link>)}</div></section>
+  const { t, image } = useSiteContent();
+  return <main><PageHero title={t("Our Services")} image={image("image_services_banner", banner)} /><div className="services-content content-width">
+    <section id="gallery"><h2>{t("Image Gallery")}</h2><p>{t("Explore our collection of ancient Sri Lankan inscriptions through a rich digital image gallery. Browse high-quality images of inscriptions from different historical periods and locations. Each image is preserved with detailed metadata, allowing users to discover, study, and appreciate Sri Lanka's archaeological heritage in an interactive and accessible way.")}</p>
+    <div className="heritage-gallery">{[{ image: image("image_services_gal", gal), title: 'Gal Vihara' }, { image: image("image_services_dambulla", dambulla), title: 'Dambulla Cave Temple' }, { image: image("image_services_yapahuwa", yapahuwa), title: 'Yapahuwa Rock' }, { image: image("image_services_avukana", avukana), title: 'Avukana Buddha statue' }, { image: image("image_services_sigiriya", sigiriya), title: 'Sigiriya Rock' }, { image: image("image_services_ruwanwelisaya", ruwanwelisaya), title: 'Ruwanwelisaya Stupa' }].map(item => <Link to="/inscriptions" key={t(item.title)}><figure><img src={item.image} alt={t(item.title)} /><figcaption>{t(item.title)}</figcaption></figure></Link>)}</div><Link to="/inscriptions" className="see-more">{t("See More...")}</Link></section>
+    <section id="services"><h2>{t("Services")}</h2><div className="service-list">{services.map(({ title, icon: Icon, text, to }) => <Link to={to} key={title} className="service-item"><div className="service-icon"><Icon aria-hidden="true" /></div><div><h3>{t(title)}</h3><p>{t(text)}</p></div></Link>)}</div></section>
   </div></main>;
 }

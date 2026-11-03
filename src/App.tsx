@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation, useParams } from 'react-router-dom';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { AuthProvider } from './context/AuthContext';
+import { SiteContentProvider } from './context/SiteContentContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -20,6 +21,11 @@ const ServicesPage = lazy(() => import('./pages/ServicesPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const IntroductionPage = lazy(() => import('./pages/IntroductionPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
+const AdminLayout = lazy(() => import('./pages/AdminLayout'));
+const AdminOverview = lazy(() => import('./pages/AdminOverview'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const AdminNotes = lazy(() => import('./pages/AdminNotes'));
+const AdminContent = lazy(() => import('./pages/AdminContent'));
 
 function SiteLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
@@ -35,7 +41,7 @@ function InscriptionDetails() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <SiteContentProvider><BrowserRouter>
         <ScrollToTop />
         <SiteLayout>
           <Suspense fallback={<main className="state-message" role="status">Loading page…</main>}>
@@ -55,16 +61,22 @@ function App() {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute>
-                  <AdminDashboard />
+                <ProtectedRoute roles={['admin']}>
+                  <AdminLayout />
                 </ProtectedRoute>
               }
-            />
+            >
+              <Route index element={<AdminOverview />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="notes" element={<AdminNotes />} />
+              <Route path="content" element={<AdminContent />} />
+              <Route path="inscriptions" element={<AdminDashboard />} />
+            </Route>
             <Route path="*" element={<main className="empty-page"><h1>Page not found</h1><Link className="primary-button" to="/">Back to Home</Link></main>} />
           </Routes>
           </Suspense>
         </SiteLayout>
-      </BrowserRouter>
+      </BrowserRouter></SiteContentProvider>
     </AuthProvider>
   );
 }

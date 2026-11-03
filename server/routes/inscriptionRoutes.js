@@ -13,7 +13,9 @@ import {
   ocrInscription,
   translateInscription,
 } from '../controllers/inscriptionController.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
+import rateLimit from 'express-rate-limit';
+import { publicNotes, submitNote } from '../controllers/noteController.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -41,12 +43,16 @@ const upload = multer({
 const router = Router();
 
 router.get('/filters', getFilterOptions);
-router.route('/').get(getInscriptions).post(requireAuth, createInscription);
-router.route('/:id').get(getInscriptionById).put(requireAuth, updateInscription).delete(requireAuth, deleteInscription);
+router.route('/').get(getInscriptions).post(requireAuth, requireRole('admin'), createInscription);
+router.route('/:id').get(getInscriptionById).put(requireAuth, requireRole('admin'), updateInscription).delete(requireAuth, requireRole('admin'), deleteInscription);
+
+export const noteLimiter = rateLimit({ windowMs: 60 * 1000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { message: 'Too many notes submitted. Please try again in a minute.' } });
+router.get('/:id/notes', publicNotes);
+router.post('/:id/notes', requireAuth, requireRole('academic'), noteLimiter, submitNote);
 
 // AI endpoints (auth required)
-router.post('/:id/upload-image', requireAuth, upload.single('image'), uploadImage);
-router.post('/:id/ocr', requireAuth, ocrInscription);
-router.post('/:id/translate', requireAuth, translateInscription);
+router.post('/:id/upload-image', requireAuth, requireRole('admin'), upload.single('image'), uploadImage);
+router.post('/:id/ocr', requireAuth, requireRole('admin'), ocrInscription);
+router.post('/:id/translate', requireAuth, requireRole('admin'), translateInscription);
 
 export default router;

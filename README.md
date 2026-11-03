@@ -14,6 +14,10 @@ Content endpoints: public `GET /api/site-content`, administrator-only `PUT /api/
 
 ## Prerequisites
 
+Each inscription detail page includes an interactive OpenStreetMap map when valid latitude and longitude have been saved. Administrators set them under **Dashboard → Inscriptions → Edit → Location** (latitude first, longitude second). The page also offers Google Maps and directions links using the saved coordinates. Records without coordinates show a clear notice and, when a site name exists, a name-based search link rather than an invented marker. Tiles require an internet connection; no map API key or visitor location permission is needed.
+
+The inscription Translation speaker uses the browser's built-in text-to-speech engine. Click once to read the saved English translation aloud and again to stop. Speech stops when leaving the inscription page. Long translations are read in short sequential segments. Device/browser speech voices and audible output must be available; unsupported browsers and playback failures show a message. No paid voice API or backend configuration is required.
+
 - [Node.js](https://nodejs.org/) (20.19+ or 22.12+; Node 24 is supported)
 - [MongoDB](https://www.mongodb.com/) running locally or a MongoDB Atlas connection string
 

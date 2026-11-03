@@ -405,6 +405,17 @@
 .content-save-bar { position: sticky; bottom: 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px 0; background: #faf7f7; border-top: 1px solid #dacaca; margin-top: 24px; font-size: 12px; }
 .content-save-bar span { flex: 1; }
 .contact-details dd { white-space: pre-line; }
+.inscription-location { margin: 30px 0 65px; }
+.location-map-heading { display: flex; justify-content: space-between; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+.location-map-heading h2 { display: flex; gap: 9px; align-items: center; font-size: 23px; font-weight: 600; }
+.location-map-heading h2 svg { width: 22px; color: #880404; }
+.location-map-heading p { margin-top: 8px; font-size: 13px; color: #766767; }
+.location-map-links { display: flex; gap: 12px; flex-wrap: wrap; }
+.location-map-links a { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 11px 16px; }
+.location-map-links svg { width: 16px; height: 16px; }
+.inscription-map-frame { height: clamp(280px, 36vw, 420px); border: 1px solid #ba9797; border-radius: 12px; overflow: hidden; position: relative; isolation: isolate; z-index: 0; }
+.location-coordinate-caption, .location-map-empty { font-size: 12px; line-height: 1.8; color: #766767; margin-top: 12px; }
+.location-map-empty { border: 1px solid #e3d8d8; border-radius: 10px; padding: 22px; background: #faf7f7; }
 .management-table th { background: #fdfbfb; color: #9f8989; font-size: 10px; letter-spacing: .7px; text-transform: uppercase; padding: 17px 20px; font-weight: 500; white-space: nowrap; border-bottom: 1px solid #eee4e4; }
 .management-table td { padding: 18px 20px; border-bottom: 1px solid #f1ebeb; color: #7d6868; max-width: 280px; overflow-wrap: anywhere; }
 .management-table td strong { color: #4c3333; font-size: 12px; font-weight: 500; }

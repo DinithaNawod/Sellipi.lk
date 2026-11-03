@@ -290,6 +290,9 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
               type="number"
               step="any"
               value={form.location.coordinates.lat ?? ''}
+              min={-90}
+              max={90}
+              aria-label="Latitude"
               onChange={(e) => setLocation('lat', e.target.value)}
               className={inputCls}
               placeholder="e.g. 8.3488"
@@ -301,6 +304,9 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
               type="number"
               step="any"
               value={form.location.coordinates.lng ?? ''}
+              min={-180}
+              max={180}
+              aria-label="Longitude"
               onChange={(e) => setLocation('lng', e.target.value)}
               className={inputCls}
               placeholder="e.g. 80.5087"
@@ -309,6 +315,7 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
         </div>
       </fieldset>
 
+      <p className="text-xs text-stone-500">For an accurate site marker, find the site in Google Maps, right-click its position, and copy the latitude (first number) and longitude (second number) into the Location fields. Save the inscription to update its public map.</p>
       {/* Period & Script row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

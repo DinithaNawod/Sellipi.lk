@@ -49,8 +49,26 @@ export const createInscription = async (req, res, next) => {
 
 export const updateInscription = async (req, res, next) => {
   try {
-    const inscription = await Inscription.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!inscription) { const e = new Error('Inscription not found'); e.statusCode = 404; return next(e); }
+    const existing = await Inscription.findById(req.params.id);
+    if (!existing) { const e = new Error('Inscription not found'); e.statusCode = 404; return next(e); }
+
+    const payload = { ...req.body };
+    const imageCleared = payload.imageUrl === '' && (existing.imageUrl || existing.imageProcessedUrl);
+    if (imageCleared) {
+      payload.imageProcessedUrl = '';
+    }
+
+    const inscription = await Inscription.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
+
+    if (imageCleared) {
+      for (const urlField of [existing.imageUrl, existing.imageProcessedUrl]) {
+        if (urlField?.startsWith('/uploads/')) {
+          const filePath = path.join(UPLOADS_DIR, '..', urlField);
+          await fs.unlink(filePath).catch(() => {});
+        }
+      }
+    }
+
     res.json(inscription);
   } catch (err) { next(err); }
 };
@@ -107,10 +125,15 @@ export const uploadImage = async (req, res, next) => {
     const originalUrl = `/uploads/originals/${req.file.filename}`;
     const processedFilename = `processed_${req.file.filename.replace(/\.[^.]+$/, '.png')}`;
     const processedPath = path.join(UPLOADS_DIR, 'processed', processedFilename);
-    const processedUrl = `/uploads/processed/${processedFilename}`;
+    let processedUrl = '';
 
-    // Run preprocessing pipeline
-    await processImage(req.file.path, processedPath);
+    // Run preprocessing pipeline (best-effort so unsupported canvas formats like WebP/TIFF still save the original)
+    try {
+      await processImage(req.file.path, processedPath);
+      processedUrl = `/uploads/processed/${processedFilename}`;
+    } catch (procErr) {
+      console.warn(`Image preprocessing skipped for ${req.file.filename}: ${procErr.message}`);
+    }
 
     inscription.imageUrl = originalUrl;
     inscription.imageProcessedUrl = processedUrl;
@@ -119,7 +142,7 @@ export const uploadImage = async (req, res, next) => {
     res.json({
       imageUrl: originalUrl,
       imageProcessedUrl: processedUrl,
-      message: 'Image uploaded and processed successfully',
+      message: processedUrl ? 'Image uploaded and processed successfully' : 'Image uploaded successfully',
     });
   } catch (err) { next(err); }
 };

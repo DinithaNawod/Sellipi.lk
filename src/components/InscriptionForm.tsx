@@ -1,15 +1,26 @@
-import { useState, useEffect, useRef } from 'react';
-import { Save, X, Upload, ScanText, Languages, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Save, X, Upload, Trash2, ScanText, Languages, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import type { Inscription, InscriptionFormData } from '../services/api';
-import { uploadInscriptionImage, runOcr, translateInscription } from '../services/api';
+import { uploadInscriptionImage, runOcr, translateInscription, getApiErrorMessage } from '../services/api';
 import { SCRIPT_TYPES } from '../utils/formatters';
 
 interface Props {
   initial?: Inscription | null;
-  onSubmit: (data: InscriptionFormData) => Promise<void>;
+  onSubmit: (data: InscriptionFormData, imageFile?: File | null) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
+  onImageUploaded?: (id: string, imageUrl: string, imageProcessedUrl: string) => void;
 }
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/tiff', 'image/bmp'];
+const ACCEPTED_IMAGE_EXTS = /\.(jpe?g|png|webp|tiff?|bmp)$/i;
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 const emptyForm = (): InscriptionFormData => ({
   title: '',
@@ -24,9 +35,41 @@ const emptyForm = (): InscriptionFormData => ({
 
 type AiStatus = 'idle' | 'loading' | 'done' | 'error';
 
-export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitting }: Props) {
+function AiButton({
+  onClick,
+  status,
+  label,
+  loadingLabel,
+  icon,
+  disabled,
+}: {
+  onClick: () => void;
+  status: AiStatus;
+  label: string;
+  loadingLabel: string;
+  icon: React.ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={status === 'loading' || disabled}
+      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-stone-300 rounded hover:bg-stone-50 text-stone-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+    >
+      {status === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}
+      {status === 'loading' ? loadingLabel : label}
+      {status === 'done' && <CheckCircle className="w-3.5 h-3.5 text-green-500 ml-0.5" />}
+      {status === 'error' && <AlertCircle className="w-3.5 h-3.5 text-red-400 ml-0.5" />}
+    </button>
+  );
+}
+
+export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitting, onImageUploaded }: Props) {
   const [form, setForm] = useState<InscriptionFormData>(emptyForm());
   const [processedImageUrl, setProcessedImageUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<AiStatus>('idle');
   const [ocrStatus, setOcrStatus] = useState<AiStatus>('idle');
   const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
@@ -36,6 +79,16 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
 
   // The inscription id is available only in edit mode
   const inscriptionId = initial?._id ?? null;
+
+  const localPreviewUrl = useMemo(
+    () => (selectedFile ? URL.createObjectURL(selectedFile) : ''),
+    [selectedFile]
+  );
+
+  useEffect(() => {
+    if (!localPreviewUrl) return;
+    return () => URL.revokeObjectURL(localPreviewUrl);
+  }, [localPreviewUrl]);
 
   useEffect(() => {
     if (initial) {
@@ -54,6 +107,8 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
       setForm(emptyForm());
       setProcessedImageUrl('');
     }
+    setSelectedFile(null);
+    setIsDragging(false);
     setUploadStatus('idle');
     setOcrStatus('idle');
     setTranslateStatus('idle');
@@ -74,23 +129,70 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(form);
+    await onSubmit(form, selectedFile);
+  };
+
+  const processSelectedFile = async (file: File) => {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type) && !ACCEPTED_IMAGE_EXTS.test(file.name)) {
+      setAiError('Unsupported file format. Please choose a JPG, PNG, WEBP, TIFF, or BMP image.');
+      setUploadStatus('error');
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setAiError('Image is too large. Maximum file size is 10 MB.');
+      setUploadStatus('error');
+      return;
+    }
+
+    setAiError('');
+
+    if (!inscriptionId) {
+      // Create mode: keep the file locally and upload automatically when the inscription is created
+      setSelectedFile(file);
+      setForm((prev) => ({ ...prev, imageUrl: '' }));
+      setProcessedImageUrl('');
+      setUploadStatus('idle');
+      return;
+    }
+
+    // Edit mode: upload & process immediately so OCR can run right away
+    setUploadStatus('loading');
+    try {
+      const result = await uploadInscriptionImage(inscriptionId, file);
+      setSelectedFile(null);
+      setForm((prev) => ({ ...prev, imageUrl: result.imageUrl }));
+      setProcessedImageUrl(result.imageProcessedUrl);
+      setUploadStatus('done');
+      onImageUploaded?.(inscriptionId, result.imageUrl, result.imageProcessedUrl);
+    } catch (err: unknown) {
+      setAiError(getApiErrorMessage(err, 'Upload failed'));
+      setUploadStatus('error');
+    }
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !inscriptionId) return;
-    setUploadStatus('loading');
+    e.target.value = '';
+    if (!file) return;
+    await processSelectedFile(file);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (uploadStatus === 'loading') return;
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await processSelectedFile(file);
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setForm((prev) => ({ ...prev, imageUrl: '' }));
+    setProcessedImageUrl('');
+    setUploadStatus('idle');
     setAiError('');
-    try {
-      const result = await uploadInscriptionImage(inscriptionId, file);
-      setForm((prev) => ({ ...prev, imageUrl: result.imageUrl }));
-      setProcessedImageUrl(result.imageProcessedUrl);
-      setUploadStatus('done');
-    } catch (err: unknown) {
-      setAiError(err instanceof Error ? err.message : 'Upload failed');
-      setUploadStatus('error');
-    }
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   const handleOcr = async () => {
@@ -103,7 +205,7 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
       setOcrConfidence(confidence);
       setOcrStatus('done');
     } catch (err: unknown) {
-      setAiError(err instanceof Error ? err.message : 'OCR failed');
+      setAiError(getApiErrorMessage(err, 'OCR failed'));
       setOcrStatus('error');
     }
   };
@@ -117,40 +219,22 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
       setForm((prev) => ({ ...prev, contentTranslated: translation }));
       setTranslateStatus('done');
     } catch (err: unknown) {
-      setAiError(err instanceof Error ? err.message : 'Translation failed');
+      setAiError(getApiErrorMessage(err, 'Translation failed'));
       setTranslateStatus('error');
     }
   };
 
   const isEditMode = !!inscriptionId;
+  const displayImageUrl = localPreviewUrl || form.imageUrl;
   const inputCls = 'w-full px-3 py-2 text-sm border border-stone-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 bg-white';
   const labelCls = 'block text-xs font-medium text-stone-500 uppercase tracking-wider mb-1';
-
-  const AiButton = ({
-    onClick, status, label, loadingLabel, icon, disabled
-  }: {
-    onClick: () => void; status: AiStatus; label: string; loadingLabel: string;
-    icon: React.ReactNode; disabled?: boolean;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={status === 'loading' || disabled}
-      className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-stone-300 rounded hover:bg-stone-50 text-stone-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-    >
-      {status === 'loading' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}
-      {status === 'loading' ? loadingLabel : label}
-      {status === 'done' && <CheckCircle className="w-3.5 h-3.5 text-green-500 ml-0.5" />}
-      {status === 'error' && <AlertCircle className="w-3.5 h-3.5 text-red-400 ml-0.5" />}
-    </button>
-  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {!isEditMode && (
         <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>Save the inscription first, then re-open it to use AI features (upload image, OCR, translate).</span>
+          <span>Save the inscription first, then re-open it to use AI features (OCR, auto-translate).</span>
         </div>
       )}
 
@@ -186,63 +270,114 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
         />
       </div>
 
-      {/* Image — URL or upload */}
+      {/* Image — direct upload from PC */}
       <div>
         <label className={labelCls}>Image</label>
-        <div className="space-y-2">
-          <input
-            type="text"
-            value={form.imageUrl}
-            onChange={(e) => set('imageUrl', e.target.value)}
-            className={inputCls}
-            placeholder="Paste image URL, or upload a file below…"
-          />
-          {isEditMode && (
-            <div className="flex items-center gap-3">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/tiff,image/bmp"
-                className="hidden"
-                onChange={handleUpload}
-              />
-              <AiButton
-                onClick={() => fileRef.current?.click()}
-                status={uploadStatus}
-                label="Upload & Process Image"
-                loadingLabel="Processing…"
-                icon={<Upload className="w-3.5 h-3.5" />}
-              />
-              {processedImageUrl && (
-                <span className="text-xs text-green-600 font-medium">Processed image ready</span>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/tiff,image/bmp"
+          className="hidden"
+          onChange={handleUpload}
+        />
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          className="space-y-2"
+        >
+          {!displayImageUrl && !processedImageUrl ? (
+            <button
+              type="button"
+              disabled={uploadStatus === 'loading'}
+              onClick={() => fileRef.current?.click()}
+              className={`w-full flex flex-col items-center justify-center gap-1.5 px-4 py-6 border-2 border-dashed rounded-lg transition-colors text-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                isDragging
+                  ? 'border-amber-500 bg-amber-50/70 text-amber-800'
+                  : 'border-stone-300 bg-stone-50/60 hover:border-amber-500 hover:bg-amber-50/40 text-stone-600'
+              }`}
+            >
+              {uploadStatus === 'loading' ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin text-amber-700" />
+                  <span className="text-sm font-medium text-stone-700">Uploading &amp; processing image…</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-6 h-6 text-amber-700" />
+                  <span className="text-sm font-medium text-stone-700">
+                    Click to upload an image from your PC
+                  </span>
+                  <span className="text-xs text-stone-400">
+                    or drag and drop here (JPG, PNG, WEBP, TIFF, BMP · max 10 MB)
+                  </span>
+                </>
               )}
-            </div>
-          )}
-          {/* Image preview */}
-          {(form.imageUrl || processedImageUrl) && (
-            <div className="flex gap-2 mt-1">
-              {form.imageUrl && (
-                <div className="flex-1">
-                  <p className="text-xs text-stone-400 mb-1">Original</p>
-                  <img
-                    src={form.imageUrl}
-                    alt="Original"
-                    className="h-24 w-full object-cover rounded border border-stone-200"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
+            </button>
+          ) : (
+            <div
+              className={`border rounded-lg p-3 space-y-3 transition-colors ${
+                isDragging ? 'border-amber-500 bg-amber-50/40' : 'border-stone-200 bg-stone-50/40'
+              }`}
+            >
+              <div className="flex gap-3">
+                {displayImageUrl && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-stone-400 mb-1">Original</p>
+                    <img
+                      src={displayImageUrl}
+                      alt="Original"
+                      className="h-32 w-full object-cover rounded border border-stone-200 bg-white"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                )}
+                {processedImageUrl && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-stone-400 mb-1">Processed (enhanced)</p>
+                    <img
+                      src={processedImageUrl}
+                      alt="Processed"
+                      className="h-32 w-full object-cover rounded border border-stone-200 bg-white"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="text-xs text-stone-500 truncate min-w-0">
+                  {selectedFile ? (
+                    <span>
+                      <strong className="text-stone-700 font-medium">{selectedFile.name}</strong>{' '}
+                      ({formatFileSize(selectedFile.size)}) · Ready to upload on save
+                    </span>
+                  ) : processedImageUrl ? (
+                    <span className="text-green-600 font-medium">Processed image ready</span>
+                  ) : (
+                    <span className="text-green-600 font-medium">Image uploaded</span>
+                  )}
                 </div>
-              )}
-              {processedImageUrl && (
-                <div className="flex-1">
-                  <p className="text-xs text-stone-400 mb-1">Processed (enhanced)</p>
-                  <img
-                    src={processedImageUrl}
-                    alt="Processed"
-                    className="h-24 w-full object-cover rounded border border-stone-200"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <AiButton
+                    onClick={() => fileRef.current?.click()}
+                    status={uploadStatus}
+                    label="Change Image"
+                    loadingLabel="Uploading…"
+                    icon={<Upload className="w-3.5 h-3.5" />}
                   />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    disabled={uploadStatus === 'loading'}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-red-200 rounded hover:bg-red-50 text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Remove
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -413,7 +548,7 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
         </button>
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || uploadStatus === 'loading'}
           className="flex items-center gap-1.5 px-5 py-2 text-sm bg-amber-700 text-white rounded hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-medium"
         >
           <Save className="w-4 h-4" />

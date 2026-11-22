@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
+    "server:dns": "node server/setupDns.js",
     "server:dev": "nodemon server/index.js",
     "admin:promote": "node server/scripts/promoteAdmin.js",
     "test": "node --test server/tests/*.test.js"

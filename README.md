@@ -75,6 +75,7 @@ Starts the Vite dev server. Open [http://localhost:5173](http://localhost:5173) 
 | `npm run build` | Type-check and build the frontend for production |
 | `npm run preview` | Preview the production build locally |
 | `npm run server` | Start the API server without auto-reload |
+| `npm run server:dns` | Start the API with public DNS for Windows Atlas SRV lookup failures |
 | `npm run lint` | Run ESLint |
 | `npm test` | Run isolated role and note-moderation API tests (no MongoDB connection) |
 | `npm run admin:promote -- owner@example.com` | Give an existing account administrator access |

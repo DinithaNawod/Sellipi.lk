@@ -5,6 +5,8 @@ import {
   createInscription,
   updateInscription,
   deleteInscription,
+  uploadInscriptionImage,
+  getApiErrorMessage,
 } from '../services/api';
 import type { Inscription, InscriptionFormData } from '../services/api';
 import InscriptionForm from '../components/InscriptionForm';
@@ -44,19 +46,38 @@ export default function AdminDashboard() {
   const openDelete = (ins: Inscription) => { setSelected(ins); setDeleteError(null); setModal('delete'); };
   const closeModal = () => { setModal('none'); setSelected(null); };
 
-  const handleFormSubmit = async (data: InscriptionFormData) => {
+  const handleImageUploaded = (id: string, imageUrl: string, imageProcessedUrl: string) => {
+    setInscriptions((prev) =>
+      prev.map((ins) => (ins._id === id ? { ...ins, imageUrl, imageProcessedUrl } : ins))
+    );
+  };
+
+  const handleFormSubmit = async (data: InscriptionFormData, imageFile?: File | null) => {
     setIsSubmitting(true);
     setFormError(null);
     try {
       if (modal === 'create') {
-        await createInscription(data);
+        const created = await createInscription(data);
+        if (imageFile) {
+          try {
+            await uploadInscriptionImage(created._id, imageFile);
+          } catch (uploadErr: unknown) {
+            setSelected(created);
+            setModal('edit');
+            load();
+            setFormError(
+              `Inscription created, but image upload failed: ${getApiErrorMessage(uploadErr, 'Upload failed')}`
+            );
+            return;
+          }
+        }
       } else if (modal === 'edit' && selected) {
         await updateInscription(selected._id, data);
       }
       closeModal();
       load();
     } catch (err: unknown) {
-      setFormError(err instanceof Error ? err.message : 'Operation failed');
+      setFormError(getApiErrorMessage(err, 'Operation failed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -210,6 +231,7 @@ export default function AdminDashboard() {
                 onSubmit={handleFormSubmit}
                 onCancel={closeModal}
                 isSubmitting={isSubmitting}
+                onImageUploaded={handleImageUploaded}
               />
             </div>
           </div>

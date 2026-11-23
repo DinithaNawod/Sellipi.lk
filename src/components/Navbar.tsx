@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Mail, PhoneCall, Bell, CircleUserRound, Menu, X, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import sellipiLogo from '../assets/sellipi-logo.png';
 
 export const navigation = [
   { label: 'Home', to: '/' },
@@ -22,7 +23,9 @@ export default function Navbar() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   return <header className="site-header">
     <div className="masthead">
-      <Link to="/" className="masthead-curve" aria-label="Inscription Sri Lanka home" />
+      <Link to="/" className="masthead-curve" aria-label="Sellipi.lk home">
+        <img src={sellipiLogo} alt="Sellipi.lk — Inscription Sri Lanka" className="masthead-logo" />
+      </Link>
       <div className="masthead-inner">
         <div className="language-links"><span lang="si">{t("සිංහල")}</span><span aria-current="true">{t("English")}</span></div>
         <div className="masthead-contact">

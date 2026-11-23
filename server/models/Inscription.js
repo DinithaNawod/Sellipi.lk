@@ -9,6 +9,9 @@ const inscriptionSchema = new mongoose.Schema(
       maxlength: [200, 'Title cannot exceed 200 characters'],
     },
     description: { type: String, trim: true, default: '' },
+    inscriptionNumber: { type: String, trim: true, default: '', maxlength: [100, 'Inscription number cannot exceed 100 characters'] },
+    publication: { type: String, trim: true, default: '', maxlength: [200, 'Publication cannot exceed 200 characters'] },
+    language: { type: String, trim: true, default: '', maxlength: [100, 'Language cannot exceed 100 characters'] },
     imageUrl: { type: String, trim: true, default: '' },
     imageProcessedUrl: { type: String, trim: true, default: '' },
     location: {

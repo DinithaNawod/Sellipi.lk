@@ -97,7 +97,7 @@ export function resetFixtures() {
     { _id: ids.suspended, username: 'Suspended Researcher', email: 'suspended@preview.invalid', password: hash, role: 'academic', status: 'suspended', institution: 'Research Institute' },
   ].map(row => ({ createdAt: '2026-11-01T10:00:00.000Z', institution: '', ...row }));
   tables.notes = [];
-  tables.inscriptions = [{ _id: ids.inscription, title: 'Inscription no 77, Vessagiriya', description: '', imageUrl: '/uploads/fixture.jpg', imageProcessedUrl: '', location: { name: 'Vessagiri', district: 'Anuradhapura', province: '', coordinates: { lat: 8.323, lng: 80.396 } }, historicalPeriod: '3 CBC – 1 CCE', scriptType: 'Brahmi', contentRaw: 'Anikata-Sona-pitaha bariya [u]pasika-Ti[sa]ya lene', contentTranslated: 'The cave is given to the Sangha of the four quarters, present and absent.', createdAt: '2026-11-01T10:00:00.000Z', updatedAt: '2026-11-01T10:00:00.000Z' }];
+  tables.inscriptions = [{ _id: ids.inscription, title: 'Inscription no 77, Vessagiriya', description: '', inscriptionNumber: '77', publication: 'Inscriptions of Ceylon Vol. I', language: 'Old Sinhala', imageUrl: '/uploads/fixture.jpg', imageProcessedUrl: '', location: { name: 'Vessagiri', district: 'Anuradhapura', province: '', coordinates: { lat: 8.323, lng: 80.396 } }, historicalPeriod: '3 CBC – 1 CCE', scriptType: 'Brahmi', contentRaw: 'Anikata-Sona-pitaha bariya [u]pasika-Ti[sa]ya lene', contentTranslated: 'The cave is given to the Sangha of the four quarters, present and absent.', createdAt: '2026-11-01T10:00:00.000Z', updatedAt: '2026-11-01T10:00:00.000Z' }];
   return tables;
 }
 export function testToken(id, extra = {}) { return jwt.sign({ id, ...extra }, secret, { algorithm: 'HS256', expiresIn: '1h' }); }
@@ -136,7 +136,7 @@ export function createTestApp() {
   mock.method(Inscription, 'findById', async id => copy(tables.inscriptions.find(row => row._id === String(id)) || null));
   mock.method(Inscription, 'find', filter => query(tables.inscriptions, filter));
   mock.method(Inscription, 'countDocuments', async filter => tables.inscriptions.filter(row => matches(row, filter)).length);
-  mock.method(Inscription, 'distinct', async field => field === 'location.name' ? ['Vessagiri'] : field === 'historicalPeriod' ? ['3 CBC – 1 CCE'] : ['Brahmi']);
+  mock.method(Inscription, 'distinct', async field => field === 'location.name' ? ['Vessagiri'] : field === 'historicalPeriod' ? ['3 CBC – 1 CCE'] : field === 'publication' ? ['Inscriptions of Ceylon Vol. I'] : field === 'language' ? ['Old Sinhala'] : ['Brahmi']);
   mock.method(SiteContent, 'findById', () => ({ lean: async () => copy(siteContent) }));
   mock.method(SiteContent, 'updateOne', async () => { siteContent ||= { _id: 'site', values: {}, revision: 0 }; });
   mock.method(SiteContent, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {

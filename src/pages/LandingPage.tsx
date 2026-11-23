@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState } from 'react';
+import { Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { useSiteContent } from '../context/SiteContentContext';
+import { fetchPublicStats, type PublicStats } from '../services/api';
 import { Link } from 'react-router-dom';
 import hero from '../assets/reference/hero-banner.jpg';
 import mountain from '../assets/reference/about-mountain.jpg';
@@ -10,10 +13,119 @@ import edupub from '../assets/landing/partner-edupub.png';
 import nec from '../assets/landing/partner-nec.png';
 import archaeology from '../assets/landing/partner-arc-flag.png';
 
+const numberFormatter = new Intl.NumberFormat();
+
 export default function LandingPage() {
   const { t, image, value: siteValue } = useSiteContent();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [failedVideoUrl, setFailedVideoUrl] = useState('');
+  const [muted, setMuted] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const [stats, setStats] = useState<PublicStats | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadStats = async () => {
+      try {
+        const data = await fetchPublicStats();
+        if (active) setStats(data);
+      } catch {
+        // Keep last loaded counts if API is temporarily unreachable
+      }
+    };
+    void loadStats();
+    const onFocus = () => { void loadStats(); };
+    window.addEventListener('focus', onFocus);
+    const interval = window.setInterval(() => { void loadStats(); }, 30000);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const heroImage = image('image_home_hero', hero);
+  const heroVideo = siteValue('video_home_hero').trim();
+  const showVideo = Boolean(heroVideo) && failedVideoUrl !== heroVideo;
+
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      void video.play();
+      setPaused(false);
+    } else {
+      video.pause();
+      setPaused(true);
+    }
+  };
+
+  const toggleMute = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !muted;
+    setMuted(!muted);
+  };
+
   return <main className="home-page">
-    <section className="home-hero" style={{ backgroundImage: `url(${image("image_home_hero", hero)})` }}><div><p>{t("Welcome to Inscription Sri Lanka")}</p><h1>{t("Discover the Stories Written in Stone")}</h1></div></section>
+    <section className="home-hero" style={{ backgroundImage: `url(${heroImage})` }}>
+      {showVideo && (
+        <video
+          ref={videoRef}
+          key={heroVideo}
+          className="home-hero-video"
+          src={heroVideo}
+          poster={heroImage}
+          autoPlay
+          loop
+          muted={muted}
+          playsInline
+          onPlay={() => setPaused(false)}
+          onPause={() => setPaused(true)}
+          onError={() => setFailedVideoUrl(heroVideo)}
+        />
+      )}
+      <div className="home-hero-content">
+        <div className="home-hero-heading">
+          <p>{t("Welcome to Inscription Sri Lanka")}</p>
+          <h1>{t("Discover the Stories Written in Stone")}</h1>
+        </div>
+        <aside className="home-hero-stats" aria-label="Archive statistics">
+          <div className="hero-stat-item">
+            <strong>{stats ? numberFormatter.format(stats.inscriptions) : '—'}</strong>
+            <span>{t("Inscriptions")}</span>
+          </div>
+          <div className="hero-stat-item">
+            <strong>{stats ? numberFormatter.format(stats.sites) : '—'}</strong>
+            <span>{t("Sites")}</span>
+          </div>
+          <div className="hero-stat-item">
+            <strong>{stats ? numberFormatter.format(stats.languages > 0 ? stats.languages : stats.scripts) : '—'}</strong>
+            <span>{t(stats && stats.languages > 0 ? "Languages" : "Scripts")}</span>
+          </div>
+        </aside>
+      </div>
+      {showVideo && (
+        <div className="home-hero-controls">
+          <button
+            type="button"
+            onClick={togglePlay}
+            aria-label={paused ? 'Play background video' : 'Pause background video'}
+            title={paused ? 'Play video' : 'Pause video'}
+          >
+            {paused ? <Play /> : <Pause />}
+          </button>
+          <button
+            type="button"
+            onClick={toggleMute}
+            aria-label={muted ? 'Unmute background video' : 'Mute background video'}
+            title={muted ? 'Unmute video' : 'Mute video'}
+          >
+            {muted ? <VolumeX /> : <Volume2 />}
+          </button>
+        </div>
+      )}
+    </section>
     <section className="home-capture content-width"><div><h2>{t("Capture the Past,")}<br />{t("Understand the Present")}</h2>
       <p>{t("Upload or capture an image of an ancient Sri Lankan inscription and experience a new way of exploring history. The system enhances the image and uses advanced Artificial Intelligence to recognize ancient scripts such as Brahmi and early Sinhala, converting them into readable text with high accuracy.")}</p>
       <p>{t("Once the text is identified, it is translated into clear modern English using intelligent language processing, allowing users to easily understand its meaning and historical value. This feature makes ancient knowledge accessible to everyone, transforming inscriptions into meaningful and interactive insights.")}</p>

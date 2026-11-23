@@ -2,12 +2,16 @@ import { useSiteContent } from '../context/SiteContentContext';
 import { Mail, Phone, PhoneCall } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { navigation } from './Navbar';
+import sellipiLogoWhite from '../assets/sellipi-logo-white.png';
 
 export default function Footer() {
   const { t, value } = useSiteContent();
   return <footer className="site-footer">
     <div className="footer-pattern"><div className="footer-grid">
       <div className="footer-contact footer-panel">
+        <Link to="/" className="footer-logo-link" aria-label="Sellipi.lk home">
+          <img src={sellipiLogoWhite} alt="Sellipi.lk — Where Ancient Stones Speak, Forgotten Stories Awaken, and the Heritage of Sri Lanka Lives Forever." className="footer-logo" />
+        </Link>
         <a href={`mailto:${value('contact_email')}`}><Mail /><span>E-Mail : {value('contact_email')}</span></a>
         <div><Phone /><span>Hotline : {value('contact_hotline')}</span></div>
         <a href={`tel:${value('contact_dial')}`}><PhoneCall /><span>Telephone Number : {value('contact_phone')}</span></a>

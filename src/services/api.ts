@@ -3,6 +3,26 @@ import axios from 'axios';
 export interface SiteContentData { values: Record<string, string>; revision: number; updatedAt?: string | null }
 export const fetchSiteContent = async (): Promise<SiteContentData> => (await api.get('/site-content')).data;
 export const saveSiteContent = async (data: SiteContentData): Promise<SiteContentData> => (await api.put('/admin/site-content', data)).data;
+export const uploadSiteVideo = async (
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ videoUrl: string; message: string }> => {
+  const formData = new FormData();
+  formData.append('video', file);
+  const { data } = await api.post<{ videoUrl: string; message: string }>(
+    '/admin/site-content/upload-video',
+    formData,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (event) => {
+        if (onProgress && event.total) {
+          onProgress(Math.round((event.loaded * 100) / event.total));
+        }
+      },
+    }
+  );
+  return data;
+};
 
 const api = axios.create({
   baseURL: '/api',
@@ -34,6 +54,9 @@ export interface Inscription {
   _id: string;
   title: string;
   description: string;
+  inscriptionNumber: string;
+  publication: string;
+  language: string;
   imageUrl: string;
   imageProcessedUrl: string;
   location: InscriptionLocation;
@@ -52,6 +75,9 @@ export interface FilterParams {
   location?: string;
   historicalPeriod?: string;
   scriptType?: string;
+  publication?: string;
+  language?: string;
+  inscriptionNumber?: string;
   page?: number;
   limit?: number;
 }
@@ -70,6 +96,15 @@ export interface FilterOptions {
   locations: string[];
   periods: string[];
   scripts: string[];
+  publications: string[];
+  languages: string[];
+}
+
+export interface PublicStats {
+  inscriptions: number;
+  sites: number;
+  scripts: number;
+  languages: number;
 }
 
 export interface OcrResult {
@@ -129,6 +164,11 @@ export const deleteInscription = async (id: string): Promise<{ message: string; 
 
 export const fetchFilterOptions = async (): Promise<FilterOptions> => {
   const { data } = await api.get<FilterOptions>('/inscriptions/filters');
+  return data;
+};
+
+export const fetchPublicStats = async (): Promise<PublicStats> => {
+  const { data } = await api.get<PublicStats>('/inscriptions/stats');
   return data;
 };
 

@@ -9,6 +9,7 @@ import {
   updateInscription,
   deleteInscription,
   getFilterOptions,
+  getPublicStats,
   uploadImage,
   ocrInscription,
   translateInscription,
@@ -43,6 +44,7 @@ const upload = multer({
 const router = Router();
 
 router.get('/filters', getFilterOptions);
+router.get('/stats', getPublicStats);
 router.route('/').get(getInscriptions).post(requireAuth, requireRole('admin'), createInscription);
 router.route('/:id').get(getInscriptionById).put(requireAuth, requireRole('admin'), updateInscription).delete(requireAuth, requireRole('admin'), deleteInscription);
 

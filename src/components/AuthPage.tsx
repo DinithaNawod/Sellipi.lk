@@ -5,6 +5,7 @@ import { loginAdmin, registerAdmin, getApiErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import gal from '../assets/reference/gal-vihara.jpg';
 import sigiriya from '../assets/reference/sigiriya.jpg';
+import sellipiLogo from '../assets/sellipi-logo.png';
 export default function AuthPage({ register = false }: { register?: boolean }) {
   const { setAuth } = useAuth();
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
     } catch (err) { setError(getApiErrorMessage(err, register ? 'Registration failed.' : 'Login failed.')); }
     finally { setLoading(false); }
   }
-  return <main className={`auth-page ${register ? 'registration-page' : ''}`} style={{ backgroundImage: `linear-gradient(#0005, #0005), url(${register ? sigiriya : gal})` }}><Link to="/" className="auth-back"><ArrowLeft />Back to Home</Link><div className="auth-composition"><section className="auth-card"><h1>{register ? 'Sign Up' : 'Sign In'}</h1><p className="auth-welcome">{register ? 'Create your account' : 'Welcome back!'}</p><form onSubmit={submit}>
+  return <main className={`auth-page ${register ? 'registration-page' : ''}`} style={{ backgroundImage: `linear-gradient(#0005, #0005), url(${register ? sigiriya : gal})` }}><Link to="/" className="auth-back"><ArrowLeft />Back to Home</Link><div className="auth-composition"><section className="auth-card"><Link to="/" className="auth-logo-link" aria-label="Sellipi.lk home"><img src={sellipiLogo} alt="Sellipi.lk" className="auth-logo" /></Link><h1>{register ? 'Sign Up' : 'Sign In'}</h1><p className="auth-welcome">{register ? 'Create your account' : 'Welcome back!'}</p><form onSubmit={submit}>
     {register && <label>Username<input name="username" autoComplete="username" required placeholder="Enter your username" /></label>}
     {register && <><label>Account Type<select name="role" value={role} onChange={event => setRole(event.target.value as 'user' | 'academic')}><option value="user">Normal User</option><option value="academic">Academic</option></select></label>{role === 'academic' && <><label>University / Institution<input name="institution" required maxLength={200} placeholder="Your university or research institution" /></label><p className="academic-registration-hint">Academic notes are reviewed by an administrator before they are published.</p></>}</>}
     <label>Email Address<input name="email" type="email" autoComplete="email" required placeholder="Enter your email address" /></label><label>Password<div className="password-input"><input name="password" type={visible ? 'text' : 'password'} value={password} onChange={event => setPassword(event.target.value)} autoComplete={register ? 'new-password' : 'current-password'} required minLength={register ? 6 : undefined} placeholder="Enter your password" /><button type="button" onClick={() => setVisible(!visible)} aria-label={visible ? 'Hide password' : 'Show password'}>{visible ? <EyeOff /> : <Eye />}</button></div></label>

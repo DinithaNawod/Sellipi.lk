@@ -9,25 +9,49 @@ import { translateText } from '../utils/translator.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const getInscriptions = async (req, res, next) => {
   try {
-    const { search, location, historicalPeriod, scriptType, page = 1, limit = 12 } = req.query;
+    const { search, location, historicalPeriod, scriptType, publication, language, inscriptionNumber, page = 1, limit = 12 } = req.query;
     const filter = {};
 
-    if (search?.trim()) filter.$text = { $search: search.trim() };
-    if (location) filter['location.name'] = { $regex: location, $options: 'i' };
-    if (historicalPeriod) filter.historicalPeriod = { $regex: historicalPeriod, $options: 'i' };
+    if (search?.trim()) {
+      const rx = { $regex: escapeRegex(search.trim()), $options: 'i' };
+      filter.$or = [
+        { title: rx },
+        { inscriptionNumber: rx },
+        { publication: rx },
+        { language: rx },
+        { description: rx },
+        { 'location.name': rx },
+        { 'location.district': rx },
+        { 'location.province': rx },
+        { historicalPeriod: rx },
+        { scriptType: rx },
+        { contentRaw: rx },
+        { contentTranslated: rx },
+      ];
+    }
+    if (location) filter['location.name'] = { $regex: escapeRegex(location), $options: 'i' };
+    if (historicalPeriod) filter.historicalPeriod = { $regex: escapeRegex(historicalPeriod), $options: 'i' };
     if (scriptType) filter.scriptType = scriptType;
+    if (publication?.trim()) filter.publication = { $regex: `^${escapeRegex(publication.trim())}$`, $options: 'i' };
+    if (language?.trim()) filter.language = { $regex: `^${escapeRegex(language.trim())}$`, $options: 'i' };
+    if (inscriptionNumber?.trim()) filter.inscriptionNumber = { $regex: escapeRegex(inscriptionNumber.trim()), $options: 'i' };
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const pageSize = Math.min(500, Math.max(1, Number.parseInt(limit, 10) || 12));
+    const skip = (currentPage - 1) * pageSize;
+
     const [inscriptions, total] = await Promise.all([
-      Inscription.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      Inscription.find(filter).sort({ createdAt: -1 }).skip(skip).limit(pageSize),
       Inscription.countDocuments(filter),
     ]);
 
     res.json({
       inscriptions,
-      pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) },
+      pagination: { total, page: currentPage, limit: pageSize, pages: Math.ceil(total / pageSize) },
     });
   } catch (err) { next(err); }
 };
@@ -92,16 +116,42 @@ export const deleteInscription = async (req, res, next) => {
 
 export const getFilterOptions = async (req, res, next) => {
   try {
-    const [locations, periods, scripts] = await Promise.all([
+    const [locations, periods, scripts, publications, languages] = await Promise.all([
       Inscription.distinct('location.name'),
       Inscription.distinct('historicalPeriod'),
       Inscription.distinct('scriptType'),
+      Inscription.distinct('publication'),
+      Inscription.distinct('language'),
     ]);
     res.json({
       locations: locations.filter(Boolean).sort(),
       periods: periods.filter(Boolean).sort(),
       scripts: scripts.filter(Boolean).sort(),
+      publications: publications.filter(Boolean).sort(),
+      languages: languages.filter(Boolean).sort(),
     });
+  } catch (err) { next(err); }
+};
+
+export const getPublicStats = async (req, res, next) => {
+  try {
+    const [inscriptions, rawSites, rawScripts, rawLanguages] = await Promise.all([
+      Inscription.countDocuments(),
+      Inscription.distinct('location.name'),
+      Inscription.distinct('scriptType'),
+      Inscription.distinct('language'),
+    ]);
+    const sites = new Set(
+      rawSites.map((s) => (typeof s === 'string' ? s.trim().toLowerCase() : '')).filter(Boolean)
+    ).size;
+    const scripts = new Set(
+      rawScripts.map((s) => (typeof s === 'string' ? s.trim().toLowerCase() : '')).filter(Boolean)
+    ).size;
+    const languages = new Set(
+      rawLanguages.map((s) => (typeof s === 'string' ? s.trim().toLowerCase() : '')).filter(Boolean)
+    ).size;
+    res.set('Cache-Control', 'no-store');
+    res.json({ inscriptions, sites, scripts, languages });
   } catch (err) { next(err); }
 };
 

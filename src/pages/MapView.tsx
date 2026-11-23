@@ -95,11 +95,23 @@ export default function MapView() {
               <Popup>
                 <div className="min-w-[180px]">
                   <p className="font-semibold text-stone-800 text-sm leading-snug mb-1">{ins.title}</p>
-                  {ins.scriptType && (
-                    <span className="inline-block text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded mb-1">
-                      {ins.scriptType}
-                    </span>
+                  {(ins.inscriptionNumber || ins.publication) && (
+                    <p className="text-xs text-stone-500 mb-1">
+                      {[ins.inscriptionNumber && `No. ${ins.inscriptionNumber}`, ins.publication].filter(Boolean).join(' · ')}
+                    </p>
                   )}
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {ins.scriptType && (
+                      <span className="inline-block text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
+                        {ins.scriptType}
+                      </span>
+                    )}
+                    {ins.language && (
+                      <span className="inline-block text-xs bg-stone-100 text-stone-700 px-2 py-0.5 rounded">
+                        {ins.language}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-stone-500 mb-2">
                     {formatLocation(ins.location)}
                     {ins.historicalPeriod && ` · ${ins.historicalPeriod}`}

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Loader2, AlertCircle, LayoutDashboard, X } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Pencil, Trash2, Loader2, AlertCircle, LayoutDashboard, X, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   fetchInscriptions,
   createInscription,
@@ -14,9 +14,27 @@ import { formatLocation, formatDate } from '../utils/formatters';
 
 type Modal = 'none' | 'create' | 'edit' | 'delete';
 
+const PAGE_SIZE = 50;
+
+const getVisiblePages = (current: number, totalPages: number): (number | 'ellipsis')[] => {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const items: (number | 'ellipsis')[] = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(totalPages - 1, current + 1);
+  if (start > 2) items.push('ellipsis');
+  for (let p = start; p <= end; p++) items.push(p);
+  if (end < totalPages - 1) items.push('ellipsis');
+  items.push(totalPages);
+  return items;
+};
+
 export default function AdminDashboard() {
   const [inscriptions, setInscriptions] = useState<Inscription[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal>('none');
@@ -24,22 +42,67 @@ export default function AdminDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Live debounced search
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (trimmed === searchQuery) return;
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setSearchQuery(trimmed);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput, searchQuery]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchInscriptions({ limit: 100 });
+      const res = await fetchInscriptions({
+        page,
+        limit: PAGE_SIZE,
+        ...(searchQuery ? { search: searchQuery } : {}),
+      });
+      const totalPages = Math.max(1, res.pagination.pages);
+      if (page > totalPages && res.pagination.total > 0) {
+        setPage(totalPages);
+        return;
+      }
       setInscriptions(res.inscriptions);
       setTotal(res.pagination.total);
+      setPages(totalPages);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(getApiErrorMessage(err, 'Failed to load data'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, searchQuery]);
 
   useEffect(() => { load(); }, [load]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = searchInput.trim();
+    setPage(1);
+    setSearchQuery(trimmed);
+  };
+
+  const clearSearch = () => {
+    setSearchInput('');
+    setSearchQuery('');
+    setPage(1);
+  };
+
+  const goToPage = (nextPage: number) => {
+    const clamped = Math.min(Math.max(1, nextPage), pages);
+    if (clamped === page) return;
+    setPage(clamped);
+    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const startIndex = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(page * PAGE_SIZE, total);
 
   const openCreate = () => { setSelected(null); setFormError(null); setModal('create'); };
   const openEdit = (ins: Inscription) => { setSelected(ins); setFormError(null); setModal('edit'); };
@@ -75,7 +138,11 @@ export default function AdminDashboard() {
         await updateInscription(selected._id, data);
       }
       closeModal();
-      load();
+      if (modal === 'create' && page !== 1) {
+        setPage(1);
+      } else {
+        load();
+      }
     } catch (err: unknown) {
       setFormError(getApiErrorMessage(err, 'Operation failed'));
     } finally {
@@ -101,16 +168,18 @@ export default function AdminDashboard() {
   const showForm = modal === 'create' || modal === 'edit';
 
   return (
-    <section className="catalogue-management">
+    <section ref={sectionRef} className="catalogue-management">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
         <div>
           <h1 className="text-2xl font-semibold text-stone-800 flex items-center gap-2">
             <LayoutDashboard className="w-6 h-6 text-amber-700" />
             Inscription Management
           </h1>
           <p className="text-stone-500 text-sm mt-1">
-            Manage the inscription catalogue — {total} record{total !== 1 ? 's' : ''} total.
+            {searchQuery
+              ? `${total} matching record${total !== 1 ? 's' : ''} for "${searchQuery}".`
+              : `Manage the inscription catalogue — ${total} record${total !== 1 ? 's' : ''} total.`}
           </p>
         </div>
         <button
@@ -121,6 +190,46 @@ export default function AdminDashboard() {
           Add Inscription
         </button>
       </div>
+
+      {/* Search Bar */}
+      <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-2 mb-5">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            aria-label="Search inscriptions"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by title, inscription number, publication, language, site, district, period, or script…"
+            className="w-full pl-10 pr-9 py-2.5 text-sm bg-white border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-600 shadow-xs"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <button
+          type="submit"
+          className="px-4 py-2.5 text-sm font-medium bg-amber-700 text-white rounded-lg hover:bg-amber-800 transition-colors"
+        >
+          Search
+        </button>
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="px-3.5 py-2.5 text-sm font-medium border border-stone-200 bg-white text-stone-600 rounded-lg hover:bg-stone-50 transition-colors"
+          >
+            Reset
+          </button>
+        )}
+      </form>
 
       {/* Table */}
       <div className="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
@@ -137,72 +246,149 @@ export default function AdminDashboard() {
           </div>
         ) : inscriptions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-stone-400">
-            <p className="text-sm">No inscriptions yet.</p>
-            <button
-              onClick={openCreate}
-              className="mt-3 text-sm text-amber-700 underline hover:no-underline"
-            >
-              Add the first one
-            </button>
+            <p className="text-sm">
+              {searchQuery ? `No inscriptions found matching "${searchQuery}".` : 'No inscriptions yet.'}
+            </p>
+            {searchQuery ? (
+              <button
+                onClick={clearSearch}
+                className="mt-3 text-sm text-amber-700 underline hover:no-underline"
+              >
+                Clear search
+              </button>
+            ) : (
+              <button
+                onClick={openCreate}
+                className="mt-3 text-sm text-amber-700 underline hover:no-underline"
+              >
+                Add the first one
+              </button>
+            )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-stone-50 border-b border-stone-200 text-left">
-                  <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider">Title</th>
-                  <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden md:table-cell">Location</th>
-                  <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden lg:table-cell">Period</th>
-                  <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden lg:table-cell">Script</th>
-                  <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden sm:table-cell">Added</th>
-                  <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {inscriptions.map((ins) => (
-                  <tr key={ins._id} className="hover:bg-stone-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-stone-800 max-w-xs">
-                      <span className="line-clamp-1">{ins.title}</span>
-                    </td>
-                    <td className="px-4 py-3 text-stone-500 hidden md:table-cell">
-                      {formatLocation(ins.location) !== 'Location unknown' ? formatLocation(ins.location) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-stone-500 hidden lg:table-cell">
-                      {ins.historicalPeriod || '—'}
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      {ins.scriptType ? (
-                        <span className="inline-block bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded">
-                          {ins.scriptType}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-stone-400 text-xs hidden sm:table-cell whitespace-nowrap">
-                      {formatDate(ins.createdAt)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(ins)}
-                          title="Edit"
-                          className="p-1.5 rounded text-stone-400 hover:text-amber-700 hover:bg-amber-50 transition-colors"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => openDelete(ins)}
-                          title="Delete"
-                          className="p-1.5 rounded text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-200 text-left">
+                    <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider w-12">#</th>
+                    <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider">Title</th>
+                    <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden md:table-cell">Location</th>
+                    <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden lg:table-cell">Period</th>
+                    <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden lg:table-cell">Script / Language</th>
+                    <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider hidden sm:table-cell">Added</th>
+                    <th className="px-4 py-3 font-medium text-stone-500 text-xs uppercase tracking-wider text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {inscriptions.map((ins, idx) => (
+                    <tr key={ins._id} className="hover:bg-stone-50 transition-colors">
+                      <td className="px-4 py-3 text-stone-400 text-xs tabular-nums">
+                        {startIndex + idx}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-stone-800 max-w-xs">
+                        <span className="line-clamp-1">{ins.title}</span>
+                        {(ins.inscriptionNumber || ins.publication) && (
+                          <span className="block text-xs font-normal text-stone-400 line-clamp-1 mt-0.5">
+                            {[ins.inscriptionNumber && `No. ${ins.inscriptionNumber}`, ins.publication].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-stone-500 hidden md:table-cell">
+                        {formatLocation(ins.location) !== 'Location unknown' ? formatLocation(ins.location) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-stone-500 hidden lg:table-cell">
+                        {ins.historicalPeriod || '—'}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {ins.scriptType ? (
+                            <span className="inline-block bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded">
+                              {ins.scriptType}
+                            </span>
+                          ) : null}
+                          {ins.language ? (
+                            <span className="inline-block bg-stone-100 text-stone-700 text-xs px-2 py-0.5 rounded">
+                              {ins.language}
+                            </span>
+                          ) : null}
+                          {!ins.scriptType && !ins.language && '—'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-stone-400 text-xs hidden sm:table-cell whitespace-nowrap">
+                        {formatDate(ins.createdAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => openEdit(ins)}
+                            title="Edit"
+                            className="p-1.5 rounded text-stone-400 hover:text-amber-700 hover:bg-amber-50 transition-colors"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openDelete(ins)}
+                            title="Delete"
+                            className="p-1.5 rounded text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination (50 per page) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-stone-50 border-t border-stone-200 text-xs text-stone-600">
+              <span>
+                Showing <strong className="text-stone-800">{startIndex}–{endIndex}</strong> of{' '}
+                <strong className="text-stone-800">{total}</strong> record{total !== 1 ? 's' : ''} (50 per page)
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-stone-300 rounded hover:bg-stone-100 text-stone-700 disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  Previous
+                </button>
+                {getVisiblePages(page, pages).map((item, idx) =>
+                  item === 'ellipsis' ? (
+                    <span key={`ellipsis-${idx}`} className="px-1.5 text-stone-400">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => goToPage(item)}
+                      aria-current={item === page ? 'page' : undefined}
+                      className={`min-w-[30px] px-2 py-1.5 rounded border font-medium transition-colors ${
+                        item === page
+                          ? 'bg-amber-700 border-amber-700 text-white'
+                          : 'bg-white border-stone-300 text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
+                <button
+                  type="button"
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= pages}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-stone-300 rounded hover:bg-stone-100 text-stone-700 disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  Next
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 

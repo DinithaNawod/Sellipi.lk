@@ -27,7 +27,7 @@ if (!process.env.JWT_SECRET) {
 
 // Ensure upload directories exist so image processing / OCR don't fail with ENOENT
 const UPLOADS_DIR = path.join(__dirname, "uploads")
-for (const sub of ["originals", "processed"]) {
+for (const sub of ["originals", "processed", "videos"]) {
   fs.mkdirSync(path.join(UPLOADS_DIR, sub), { recursive: true })
 }
 

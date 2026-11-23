@@ -1,5 +1,12 @@
 [
   {
+    "key": "video_home_hero",
+    "group": "Home",
+    "label": "Home Hero Banner Video",
+    "value": "",
+    "type": "video"
+  },
+  {
     "key": "copy_366456575ab14672",
     "group": "Home",
     "label": "Welcome to Inscription Sri Lanka",

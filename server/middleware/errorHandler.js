@@ -1,6 +1,12 @@
 export const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || (err.name === 'ValidationError' ? 400 : 500);
 
+  if (err.name === 'MulterError') {
+    const message = err.code === 'LIMIT_FILE_SIZE'
+      ? 'Uploaded file is too large.'
+      : err.message || 'File upload failed.';
+    return res.status(400).json({ message });
+  }
   if (err.code === 11000) {
     return res.status(400).json({ message: 'Duplicate field value entered', field: Object.keys(err.keyValue)[0] });
   }

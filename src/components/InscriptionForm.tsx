@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Save, X, Upload, Trash2, ScanText, Languages, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import type { Inscription, InscriptionFormData } from '../services/api';
 import { uploadInscriptionImage, runOcr, translateInscription, getApiErrorMessage } from '../services/api';
-import { SCRIPT_TYPES } from '../utils/formatters';
+import { SCRIPT_TYPES, LANGUAGE_OPTIONS } from '../utils/formatters';
 
 interface Props {
   initial?: Inscription | null;
@@ -25,6 +25,9 @@ const formatFileSize = (bytes: number) => {
 const emptyForm = (): InscriptionFormData => ({
   title: '',
   description: '',
+  inscriptionNumber: '',
+  publication: '',
+  language: '',
   imageUrl: '',
   location: { name: '', district: '', province: '', coordinates: { lat: null, lng: null } },
   historicalPeriod: '',
@@ -95,6 +98,9 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
       setForm({
         title: initial.title,
         description: initial.description,
+        inscriptionNumber: initial.inscriptionNumber || '',
+        publication: initial.publication || '',
+        language: initial.language || '',
         imageUrl: initial.imageUrl,
         location: { ...initial.location },
         historicalPeriod: initial.historicalPeriod,
@@ -256,6 +262,30 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
           className={inputCls}
           placeholder="e.g. Mihintale Rock Inscription"
         />
+      </div>
+
+      {/* Inscription Number & Publication */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className={labelCls}>Inscription Number</label>
+          <input
+            type="text"
+            value={form.inscriptionNumber}
+            onChange={(e) => set('inscriptionNumber', e.target.value)}
+            className={inputCls}
+            placeholder="e.g. 77 or IC Vol. I, No. 77"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Publication</label>
+          <input
+            type="text"
+            value={form.publication}
+            onChange={(e) => set('publication', e.target.value)}
+            className={inputCls}
+            placeholder="e.g. Inscriptions of Ceylon Vol. I"
+          />
+        </div>
       </div>
 
       {/* Description */}
@@ -451,8 +481,8 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
       </fieldset>
 
       <p className="text-xs text-stone-500">For an accurate site marker, find the site in Google Maps, right-click its position, and copy the latitude (first number) and longitude (second number) into the Location fields. Save the inscription to update its public map.</p>
-      {/* Period & Script row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Period, Language & Script row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
           <label className={labelCls}>Historical Period</label>
           <input
@@ -462,6 +492,22 @@ export default function InscriptionForm({ initial, onSubmit, onCancel, isSubmitt
             className={inputCls}
             placeholder="e.g. 3rd century BCE"
           />
+        </div>
+        <div>
+          <label className={labelCls}>Language</label>
+          <input
+            type="text"
+            list="inscription-language-options"
+            value={form.language}
+            onChange={(e) => set('language', e.target.value)}
+            className={inputCls}
+            placeholder="e.g. Old Sinhala, Prakrit"
+          />
+          <datalist id="inscription-language-options">
+            {LANGUAGE_OPTIONS.map((lang) => (
+              <option key={lang} value={lang} />
+            ))}
+          </datalist>
         </div>
         <div>
           <label className={labelCls}>Script Type</label>

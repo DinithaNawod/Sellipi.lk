@@ -26,7 +26,7 @@ const inscriptionSchema = new mongoose.Schema(
     historicalPeriod: { type: String, trim: true, default: '' },
     scriptType: {
       type: String,
-      enum: ['Brahmi', 'Ancient Sinhala', 'Grantha', 'Tamil Brahmi', 'Proto-Sinhala', 'Other', ''],
+      enum: ['Early Brahmi', 'Late Brahmi', 'Ancient Sinhala', 'Brahmi', ''],
       default: '',
     },
     contentRaw: { type: String, trim: true, default: '' },

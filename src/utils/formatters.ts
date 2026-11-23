@@ -19,6 +19,6 @@ export const truncateText = (text: string, maxLength: number): string => {
   return text.slice(0, maxLength).trimEnd() + '…';
 };
 
-export const SCRIPT_TYPES = ['Brahmi', 'Ancient Sinhala', 'Grantha', 'Tamil Brahmi', 'Proto-Sinhala', 'Other'] as const;
+export const SCRIPT_TYPES = ['Early Brahmi', 'Late Brahmi', 'Ancient Sinhala'] as const;
 
 export const LANGUAGE_OPTIONS = ['Old Sinhala', 'Sinhala', 'Prakrit', 'Pali', 'Tamil', 'Sanskrit', 'Other'] as const;

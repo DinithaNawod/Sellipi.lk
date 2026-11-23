@@ -15,6 +15,76 @@ import archaeology from '../assets/landing/partner-arc-flag.png';
 
 const numberFormatter = new Intl.NumberFormat();
 
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function useCountUp(target: number | null, duration = 1200): number | null {
+  const [display, setDisplay] = useState<number | null>(null);
+  const currentRef = useRef(0);
+
+  useEffect(() => {
+    if (target === null) return;
+    if (prefersReducedMotion()) {
+      const id = window.requestAnimationFrame(() => {
+        currentRef.current = target;
+        setDisplay(target);
+      });
+      return () => window.cancelAnimationFrame(id);
+    }
+
+    const from = currentRef.current;
+    const diff = target - from;
+    const startTime = performance.now();
+    let rafId = 0;
+
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - (1 - progress) ** 3;
+      const next = Math.round(from + diff * eased);
+      currentRef.current = next;
+      setDisplay(next);
+      if (progress < 1) {
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [target, duration]);
+
+  return display;
+}
+
+function useHeroTypewriter(line1: string, line2: string) {
+  const total = line1.length + line2.length;
+  const [typedCount, setTypedCount] = useState(() => (prefersReducedMotion() ? total : 0));
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      const id = window.requestAnimationFrame(() => setTypedCount(total));
+      return () => window.cancelAnimationFrame(id);
+    }
+
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index += 1;
+      setTypedCount(index);
+      if (index >= total) {
+        window.clearInterval(timer);
+      }
+    }, 36);
+
+    return () => window.clearInterval(timer);
+  }, [line1, line2, total]);
+
+  const clamped = Math.min(typedCount, total);
+  const typedLine1 = line1.slice(0, Math.min(clamped, line1.length));
+  const typedLine2 = clamped > line1.length ? line2.slice(0, clamped - line1.length) : '';
+  const activeLine = clamped < line1.length ? 1 : clamped < total ? 2 : 0;
+
+  return { typedLine1, typedLine2, activeLine, isDone: clamped >= total };
+}
+
 export default function LandingPage() {
   const { t, image, value: siteValue } = useSiteContent();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -22,6 +92,15 @@ export default function LandingPage() {
   const [muted, setMuted] = useState(true);
   const [paused, setPaused] = useState(false);
   const [stats, setStats] = useState<PublicStats | null>(null);
+
+  const heroSubtitle = t('Welcome to Inscription Sri Lanka');
+  const heroTitle = t('Discover the Stories Written in Stone');
+  const { typedLine1, typedLine2, activeLine, isDone } = useHeroTypewriter(heroSubtitle, heroTitle);
+
+  const thirdStatTarget = stats ? (stats.languages > 0 ? stats.languages : stats.scripts) : null;
+  const animatedInscriptions = useCountUp(stats ? stats.inscriptions : null, 1300);
+  const animatedSites = useCountUp(stats ? stats.sites : null, 1150);
+  const animatedThird = useCountUp(thirdStatTarget, 900);
 
   useEffect(() => {
     let active = true;
@@ -87,20 +166,34 @@ export default function LandingPage() {
       )}
       <div className="home-hero-content">
         <div className="home-hero-heading">
-          <p>{t("Welcome to Inscription Sri Lanka")}</p>
-          <h1>{t("Discover the Stories Written in Stone")}</h1>
+          <p className="hero-type-line" aria-label={heroSubtitle}>
+            <span className="hero-type-spacer" aria-hidden="true">{heroSubtitle}</span>
+            <span className="hero-type-live" aria-hidden="true">
+              {typedLine1}
+              {activeLine === 1 && <span className="hero-type-cursor" />}
+            </span>
+          </p>
+          <h1 className="hero-type-line" aria-label={heroTitle}>
+            <span className="hero-type-spacer" aria-hidden="true">{heroTitle}</span>
+            <span className="hero-type-live" aria-hidden="true">
+              {typedLine2}
+              {(activeLine === 2 || isDone) && (
+                <span className={`hero-type-cursor ${isDone ? 'is-done' : ''}`} />
+              )}
+            </span>
+          </h1>
         </div>
         <aside className="home-hero-stats" aria-label="Archive statistics">
           <div className="hero-stat-item">
-            <strong>{stats ? numberFormatter.format(stats.inscriptions) : '—'}</strong>
+            <strong>{animatedInscriptions !== null ? numberFormatter.format(animatedInscriptions) : '—'}</strong>
             <span>{t("Inscriptions")}</span>
           </div>
           <div className="hero-stat-item">
-            <strong>{stats ? numberFormatter.format(stats.sites) : '—'}</strong>
+            <strong>{animatedSites !== null ? numberFormatter.format(animatedSites) : '—'}</strong>
             <span>{t("Sites")}</span>
           </div>
           <div className="hero-stat-item">
-            <strong>{stats ? numberFormatter.format(stats.languages > 0 ? stats.languages : stats.scripts) : '—'}</strong>
+            <strong>{animatedThird !== null ? numberFormatter.format(animatedThird) : '—'}</strong>
             <span>{t(stats && stats.languages > 0 ? "Languages" : "Scripts")}</span>
           </div>
         </aside>

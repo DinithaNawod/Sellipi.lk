@@ -35,6 +35,4 @@ const inscriptionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-inscriptionSchema.index({ title: 'text', description: 'text', contentRaw: 'text' });
-
 export default mongoose.model('Inscription', inscriptionSchema);

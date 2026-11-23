@@ -14,6 +14,7 @@ import adminRoutes from "./routes/adminRoutes.js"
 import noteRoutes from "./routes/noteRoutes.js"
 import { getSiteContent } from './controllers/siteContentController.js';
 import { errorHandler } from "./middleware/errorHandler.js"
+import Inscription from "./models/Inscription.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -73,6 +74,23 @@ const connectWithRetry = async (attempt = 1) => {
     await mongoose.connect(MONGO_URI)
     const { host, name } = mongoose.connection
     console.log(`MongoDB connected: ${host}/${name}`)
+
+    // Drop legacy MongoDB text indexes whose default `language_override: "language"`
+    // conflicts with the inscription `language` field (e.g. "Old Sinhala", "Prakrit", "").
+    try {
+      const indexes = await Inscription.collection.indexes()
+      for (const idx of indexes) {
+        if (idx.textIndexVersion && (!idx.language_override || idx.language_override === "language")) {
+          await Inscription.collection.dropIndex(idx.name)
+          console.log(`Dropped legacy incompatible text index: ${idx.name}`)
+        }
+      }
+    } catch (idxErr) {
+      if (idxErr.codeName !== "NamespaceNotFound") {
+        console.warn(`Index cleanup warning: ${idxErr.message}`)
+      }
+    }
+
     app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`))
   } catch (err) {
     const delay = Math.min(MAX_RETRY_DELAY, 2000 * 2 ** (attempt - 1))
